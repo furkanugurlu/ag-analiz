@@ -11,6 +11,8 @@
     "dependencies": {
         "@repo/shared": "*",
         "@supabase/supabase-js": "^2.89.0",
+        "@types/cors": "^2.8.19",
+        "cors": "^2.8.5",
         "dotenv": "^16.0.3",
         "express": "^4.18.2"
     },

@@ -11,6 +11,10 @@ interface GraphCanvasProps {
     onNodeMove?: (nodeId: string, x: number, y: number) => void;
     onNodeSelect?: (node: INode | null) => void;
     onNodeAdd?: (x: number, y: number) => void;
+    onEdgeAdd?: (sourceId: string, targetId: string) => void;
+    customNodeColors?: Record<string, string>;
+    highlightedPath?: string[];
+    selectedNodeId?: string | null;
 }
 
 const GraphCanvas: React.FC<GraphCanvasProps> = ({
@@ -20,19 +24,23 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
     height = 600,
     onNodeMove,
     onNodeSelect,
-    onNodeAdd
+    onNodeAdd,
+    onEdgeAdd,
+    customNodeColors = {},
+    highlightedPath = [],
+    selectedNodeId = null
 }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
 
+    // Edge Creation State
+    const [isConnecting, setIsConnecting] = useState(false);
+    const [connectingNodeId, setConnectingNodeId] = useState<string | null>(null);
+    const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+
     // Initial Layout Logic (only runs once if nodes have 0,0 coords)
     useEffect(() => {
-        // Check if we need to apply layout (simple check: if most nodes are at 0,0)
-        // We only do this if we haven't already positioned them.
-        // Ideally this should happen in the parent or a utility, but keeping here for now as requested previously.
-        // NOTE: In a real app, layouting should probably be separate from the renderer.
-        // For this step, we assume the parent manages state, but we ensure the visual update happens.
     }, []);
 
     const getMousePos = (e: React.MouseEvent) => {
@@ -59,24 +67,45 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
         const node = getNodeAtPos(x, y);
 
         if (node) {
-            setIsDragging(true);
-            setDraggedNodeId(node.id);
-            onNodeSelect?.(node);
+            if (e.shiftKey) {
+                // Start connection mode
+                setIsConnecting(true);
+                setConnectingNodeId(node.id);
+                setMousePos({ x, y });
+            } else {
+                // Normal drag/select
+                setIsDragging(true);
+                setDraggedNodeId(node.id);
+                onNodeSelect?.(node);
+            }
         } else {
             onNodeSelect?.(null);
         }
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
+        const { x, y } = getMousePos(e);
+        setMousePos({ x, y });
+
         if (isDragging && draggedNodeId) {
-            const { x, y } = getMousePos(e);
             onNodeMove?.(draggedNodeId, x, y);
         }
     };
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (e: React.MouseEvent) => {
+        if (isConnecting && connectingNodeId) {
+            const { x, y } = getMousePos(e);
+            const targetNode = getNodeAtPos(x, y);
+
+            if (targetNode && targetNode.id !== connectingNodeId) {
+                onEdgeAdd?.(connectingNodeId, targetNode.id);
+            }
+        }
+
         setIsDragging(false);
         setDraggedNodeId(null);
+        setIsConnecting(false);
+        setConnectingNodeId(null);
     };
 
     const handleDoubleClick = (e: React.MouseEvent) => {
@@ -97,8 +126,7 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
         // Clear canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Initial Circular Layout application if needed (visual only if parent didn't set)
-        // We'll rely on the parent state for positions mostly, but if 0,0 we can fallback visually
+        // ... (layout logic same as before)
         const centerX = canvas.width / 2;
         const centerY = canvas.height / 2;
         const radius = Math.min(centerX, centerY) * 0.8;
@@ -115,33 +143,100 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
         // Draw Edges
         edges.forEach(edge => {
+            // ... existing edge drawing code
             const source = renderNodes.find(n => n.id === edge.sourceId);
             const target = renderNodes.find(n => n.id === edge.targetId);
 
             if (source && target) {
+                let isHighlighted = false;
+                if (highlightedPath.length > 1) {
+                    for (let i = 0; i < highlightedPath.length - 1; i++) {
+                        if ((highlightedPath[i] === edge.sourceId && highlightedPath[i + 1] === edge.targetId) ||
+                            (highlightedPath[i] === edge.targetId && highlightedPath[i + 1] === edge.sourceId)) {
+                            isHighlighted = true;
+                            break;
+                        }
+                    }
+                }
+
                 ctx.beginPath();
                 ctx.moveTo(source.x, source.y);
                 ctx.lineTo(target.x, target.y);
-                ctx.strokeStyle = '#9CA3AF'; // Gray-400
-                ctx.lineWidth = 1;
+
+                if (isHighlighted) {
+                    ctx.strokeStyle = '#EF4444'; // Red
+                    ctx.lineWidth = 4;
+                } else {
+                    ctx.strokeStyle = '#374151'; // Gray-700 (Darker for better contrast)
+                    ctx.lineWidth = 2;
+                }
+
                 ctx.stroke();
             }
         });
 
+        // Draw Proposed Edge (Rubber banding)
+        if (isConnecting && connectingNodeId) {
+            const source = renderNodes.find(n => n.id === connectingNodeId);
+            if (source) {
+                ctx.beginPath();
+                ctx.moveTo(source.x, source.y);
+                ctx.lineTo(mousePos.x, mousePos.y);
+                ctx.strokeStyle = '#60A5FA'; // Light Blue
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.stroke();
+                ctx.setLineDash([]); // Reset
+            }
+        }
+
         // Draw Nodes
         renderNodes.forEach(node => {
+            const isSelected = selectedNodeId === node.id;
+
+            // Selection Glow
+            if (isSelected) {
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, 28, 0, 2 * Math.PI);
+                ctx.fillStyle = 'rgba(59, 130, 246, 0.5)'; // Blue glow
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, 24, 0, 2 * Math.PI);
+                ctx.fillStyle = 'rgba(59, 130, 246, 0.8)'; // Inner Blue glow
+                ctx.fill();
+            }
+
             // Draw circle
             ctx.beginPath();
             ctx.arc(node.x, node.y, 20, 0, 2 * Math.PI);
-            ctx.fillStyle = node.properties.isActive ? '#10B981' : '#EF4444'; // Green or Red
+
+            // Color Logic: Custom > Active/Passive
+            if (customNodeColors[node.id]) {
+                ctx.fillStyle = customNodeColors[node.id] || '#EF4444';
+            } else {
+                ctx.fillStyle = node.properties.isActive ? '#10B981' : '#EF4444';
+            }
+
             ctx.fill();
-            ctx.strokeStyle = '#FFFFFF';
-            ctx.lineWidth = 2;
+
+            // Border Logic
+            if (highlightedPath.includes(node.id)) {
+                ctx.strokeStyle = '#FCD34D'; // Yellow/Gold
+                ctx.lineWidth = 4;
+            } else if (isSelected) {
+                ctx.strokeStyle = '#FFFFFF'; // White border for selection
+                ctx.lineWidth = 3;
+            } else {
+                ctx.strokeStyle = '#1F2937'; // Dark border normal
+                ctx.lineWidth = 2;
+            }
+
             ctx.stroke();
 
             // Draw Label
             ctx.fillStyle = '#FFFFFF'; // White text
-            ctx.font = '12px Arial';
+            ctx.font = isSelected ? 'bold 13px Inter, Arial' : '12px Inter, Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(node.label || node.id.substring(0, 4), node.x, node.y);
@@ -154,15 +249,18 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
             // Ideally parent handles this layout init
         }
 
-    }, [nodes, edges, width, height]);
+    }, [nodes, edges, width, height, customNodeColors, highlightedPath, selectedNodeId, isConnecting, connectingNodeId, mousePos]);
 
     return (
-        <div className="border border-gray-700 rounded-lg overflow-hidden bg-gray-900 shadow-xl">
+        <div className="border border-gray-700 rounded-lg overflow-hidden bg-gray-900 shadow-xl relative">
+            <div className="absolute top-2 left-2 text-xs text-gray-500 pointer-events-none select-none z-10">
+                Shift + Drag: Bağlantı Oluştur | Çift Tıkla: Node Ekle
+            </div>
             <canvas
                 ref={canvasRef}
                 width={width}
                 height={height}
-                className="block cursor-crosshair"
+                className={`block ${isConnecting ? 'cursor-crosshair' : 'cursor-default'}`}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}

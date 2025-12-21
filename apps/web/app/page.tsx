@@ -1,128 +1,167 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import GraphCanvas from '../components/GraphCanvas';
-import { INode, IEdge } from '@repo/shared';
+import Modal from '../components/Modal';
+import { useGraphStore } from '../store/useGraphStore';
 
 export default function Home() {
-  const [nodes, setNodes] = useState<INode[]>([]);
-  const [edges, setEdges] = useState<IEdge[]>([]);
-  const [selectedNode, setSelectedNode] = useState<INode | null>(null);
+  const {
+    nodes, edges, selectedNode, loading, algoLoading, customColors, highlightedPath, modal,
+    fetchGraph, saveGraph, addNode, updateNodePos, selectNode, updateNodeProperty, updateNodeLabel,
+    runBFS, runColoring, runShortestPath, openModal, closeModal
+  } = useGraphStore();
 
   useEffect(() => {
-    fetch('http://localhost:3001/test-graph')
-      .then(res => res.json())
-      .then(data => {
-        // Apply initial layout here if needed, or let canvas handle visual fallback
-        // For data consistency, we'll let them start at 0,0 and updated via interaction
-        setNodes(data.nodes);
-        setEdges(data.edges);
-      })
-      .catch(err => console.error("Failed to fetch graph:", err));
-  }, []);
+    fetchGraph();
+  }, [fetchGraph]);
 
-  const handleNodeMove = (id: string, x: number, y: number) => {
-    setNodes(prev => prev.map(n => n.id === id ? { ...n, x, y } : n));
-    if (selectedNode && selectedNode.id === id) {
-      setSelectedNode(prev => prev ? { ...prev, x, y } : null);
+  const handleRunShortestPath = () => {
+    if (!selectedNode) {
+      openModal({ title: "Uyarı", message: "Lütfen başlangıç düğümü seçin.", type: "error" });
+      return;
     }
-  };
 
-  const handleNodeSelect = (node: INode | null) => {
-    setSelectedNode(node);
-  };
-
-  const handleNodeAdd = (x: number, y: number) => {
-    const newNode: INode = {
-      id: crypto.randomUUID(),
-      label: `Node ${nodes.length + 1}`,
-      x,
-      y,
-      properties: { isActive: true, interactionCount: 0, connectionCount: 0 }
-    };
-    setNodes(prev => [...prev, newNode]);
-  };
-
-  const updateNodeProperty = (key: string, value: any) => {
-    if (!selectedNode) return;
-
-    const updatedProps = { ...selectedNode.properties, [key]: value };
-    const updatedNode = { ...selectedNode, properties: updatedProps };
-
-    setSelectedNode(updatedNode);
-    setNodes(prev => prev.map(n => n.id === selectedNode.id ? updatedNode : n));
+    openModal({
+      title: "Hedef Seçimi",
+      message: "Hedef düğümün etiketini girin:",
+      type: "input",
+      inputPlaceholder: "Örn: Node B",
+      onConfirm: (val) => {
+        if (val) runShortestPath(val);
+      }
+    });
   };
 
   return (
-    <main className="flex min-h-screen p-8 bg-gradient-to-br from-gray-900 to-black text-white gap-8">
+    <main className="flex min-h-screen p-8 bg-gradient-to-br from-gray-900 via-slate-900 to-black text-white gap-8 font-sans selection:bg-blue-500/30">
 
       <div className="flex-grow flex flex-col items-center">
-        <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-600 mb-8">
+        <h1 className="text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 mb-10 drop-shadow-lg tracking-tight">
           Ağ Analizi Projesi
         </h1>
 
-        <div className="w-full max-w-4xl">
-          <GraphCanvas
-            nodes={nodes}
-            edges={edges}
-            width={800}
-            height={600}
-            onNodeMove={handleNodeMove}
-            onNodeSelect={handleNodeSelect}
-            onNodeAdd={handleNodeAdd}
-          />
+        <div className="w-full max-w-5xl relative group perspective-1000">
+          {algoLoading && (
+            <div className="absolute top-4 right-4 z-10 px-4 py-2 bg-yellow-500/20 backdrop-blur-md border border-yellow-500/50 rounded-full text-yellow-300 font-mono text-xs animate-pulse shadow-[0_0_15px_rgba(234,179,8,0.3)] flex items-center gap-2">
+              <span className="w-2 h-2 bg-yellow-400 rounded-full animate-ping" />
+              Algoritma Çalışıyor...
+            </div>
+          )}
+
+          {/* Canvas */}
+          <div className="relative transform transition-transform duration-500 shadow-2xl shadow-blue-900/20 rounded-xl overflow-hidden border border-white/10">
+            <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-purple-500/5 pointer-events-none" />
+            <GraphCanvas
+              nodes={nodes}
+              edges={edges}
+              width={900}
+              height={650}
+              onNodeMove={updateNodePos}
+              onNodeSelect={selectNode}
+              onNodeAdd={addNode}
+              onEdgeAdd={(source, target) => {
+                /* Optional confirmation logic could go here */
+                /* e.g., openModal confirming connection */
+                const s = nodes.find(n => n.id === source);
+                const t = nodes.find(n => n.id === target);
+                if (s && t) {
+                  useGraphStore.getState().addEdge(source, target);
+                }
+              }}
+              customNodeColors={customColors}
+              highlightedPath={highlightedPath}
+              selectedNodeId={selectedNode?.id}
+            />
+          </div>
         </div>
 
-        <div className="mt-8 flex gap-4">
-          <button className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors font-medium">
-            Kaydet (Database)
+        <div className="mt-10 flex flex-wrap gap-4 justify-center">
+          <button onClick={saveGraph} disabled={loading} className="group relative px-6 py-3 bg-emerald-600/20 border border-emerald-500/50 hover:bg-emerald-600/40 rounded-xl transition-all duration-300 font-medium text-emerald-300 backdrop-blur-sm shadow-lg shadow-emerald-900/20 hover:shadow-emerald-500/30 flex items-center gap-2 disabled:opacity-50">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
+            {loading ? 'Yükleniyor...' : 'Kaydet (DB)'}
+          </button>
+
+          <div className="w-px bg-white/10 mx-2 self-stretch"></div>
+
+          <button onClick={runBFS} className="group px-6 py-3 bg-blue-600/20 border border-blue-500/50 hover:bg-blue-600/40 rounded-xl transition-all duration-300 font-medium text-blue-300 backdrop-blur-sm shadow-lg shadow-blue-900/20 hover:shadow-blue-500/30">
+            BFS Animasyonu
+          </button>
+          <button onClick={runColoring} className="group px-6 py-3 bg-purple-600/20 border border-purple-500/50 hover:bg-purple-600/40 rounded-xl transition-all duration-300 font-medium text-purple-300 backdrop-blur-sm shadow-lg shadow-purple-900/20 hover:shadow-purple-500/30">
+            Renklendir (Welsh-Powell)
+          </button>
+          <button onClick={handleRunShortestPath} className="group px-6 py-3 bg-orange-600/20 border border-orange-500/50 hover:bg-orange-600/40 rounded-xl transition-all duration-300 font-medium text-orange-300 backdrop-blur-sm shadow-lg shadow-orange-900/20 hover:shadow-orange-500/30">
+            En Kısa Yol (Dijkstra)
           </button>
         </div>
       </div>
 
       {/* Properties Panel */}
-      <div className="w-80 bg-gray-800 rounded-xl p-6 border border-gray-700 h-fit shadow-2xl">
-        <h2 className="text-xl font-bold mb-4 text-blue-400">Özellik Paneli</h2>
+      <div className="w-80 bg-gray-900/60 backdrop-blur-xl rounded-2xl p-6 border border-white/10 h-fit shadow-2xl transition-all duration-300 hover:border-white/20">
+        {/* Header */}
+        <h2 className="text-xl font-bold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 flex items-center gap-2">
+          <svg className="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+          Özellik Paneli
+        </h2>
+
         {selectedNode ? (
           <div className="space-y-4">
             <div>
               <label className="block text-sm text-gray-400 mb-1">ID</label>
-              <div className="text-xs font-mono bg-gray-900 p-2 rounded text-gray-300 truncate">{selectedNode.id}</div>
+              <div className="text-xs font-mono bg-gray-800/50 p-2 rounded text-gray-300 truncate border border-gray-700/50">{selectedNode.id}</div>
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Etiket</label>
-              <input
-                type="text"
-                value={selectedNode.label}
-                onChange={(e) => {
-                  const updated = { ...selectedNode, label: e.target.value };
-                  setSelectedNode(updated);
-                  setNodes(prev => prev.map(n => n.id === selectedNode.id ? updated : n));
-                }}
-                className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white focus:outline-none focus:border-blue-500"
-              />
+              <label className="block text-sm text-gray-400 mb-1">Etiket (Tıkla ve Düzenle)</label>
+              <div
+                onClick={() => openModal({
+                  title: "Etiket Düzenle",
+                  message: "Yeni etiket adını girin:",
+                  type: "input",
+                  inputPlaceholder: selectedNode.label,
+                  onConfirm: (val) => {
+                    if (val) updateNodeLabel(selectedNode.id, val);
+                  }
+                })}
+                className="w-full bg-gray-800/50 border border-gray-700/50 rounded-lg p-2.5 text-white hover:border-blue-500/50 hover:bg-gray-800 transition-all cursor-pointer flex justify-between items-center group"
+              >
+                <span>{selectedNode.label}</span>
+                <svg className="w-4 h-4 text-gray-500 group-hover:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+              </div>
             </div>
 
-            <div className="border-t border-gray-700 pt-4 mt-4">
-              <h3 className="font-semibold mb-2 text-gray-300">Properties</h3>
+            <div className="border-t border-gray-700/50 pt-4 mt-4">
+              <h3 className="font-semibold mb-3 text-gray-300 flex items-center gap-2">
+                <span className="w-1 h-4 bg-blue-500 rounded-full"></span>
+                Properties
+              </h3>
 
-              <div className="flex items-center justify-between mb-3">
-                <label className="text-sm text-gray-400">Aktiflik</label>
-                <input
-                  type="checkbox"
-                  checked={selectedNode.properties.isActive}
-                  onChange={(e) => updateNodeProperty('isActive', e.target.checked)}
-                  className="w-5 h-5 rounded border-gray-600 text-blue-600 focus:ring-blue-500 bg-gray-900"
-                />
+              <div className="flex items-center justify-between mb-4 bg-gray-800/30 p-3 rounded-lg border border-gray-700/30">
+                <label className="text-sm text-gray-400">Aktiflik Durumu</label>
+                <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                  <input
+                    type="checkbox"
+                    name="toggle"
+                    id="toggle"
+                    checked={selectedNode.properties.isActive}
+                    onChange={(e) => updateNodeProperty(selectedNode.id, 'isActive', e.target.checked)}
+                    className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer transition-transform duration-200 ease-in-out transform checked:translate-x-full checked:border-blue-600"
+                  />
+                  <label htmlFor="toggle" className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer ${selectedNode.properties.isActive ? 'bg-blue-600' : 'bg-gray-600'}`}></label>
+                </div>
               </div>
 
-              <div className="mb-3">
-                <label className="block text-sm text-gray-400 mb-1">Etkileşim</label>
+              <div className="mb-4">
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-sm text-gray-400">Etkileşim</label>
+                  <span className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-md">{selectedNode.properties.interactionCount}</span>
+                </div>
                 <input
-                  type="number"
+                  type="range"
+                  min="0"
+                  max="100"
                   value={selectedNode.properties.interactionCount}
-                  onChange={(e) => updateNodeProperty('interactionCount', parseInt(e.target.value) || 0)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white"
+                  onChange={(e) => updateNodeProperty(selectedNode.id, 'interactionCount', e.target.value)}
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
                 />
               </div>
 
@@ -131,17 +170,29 @@ export default function Home() {
                 <input
                   type="number"
                   value={selectedNode.properties.connectionCount}
-                  onChange={(e) => updateNodeProperty('connectionCount', parseInt(e.target.value) || 0)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white"
+                  onChange={(e) => updateNodeProperty(selectedNode.id, 'connectionCount', e.target.value)}
+                  className="w-full bg-gray-800/50 border border-gray-700/50 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 outline-none transition-all"
                 />
               </div>
             </div>
           </div>
         ) : (
-          <p className="text-gray-500 text-sm">Düzenlemek için bir düğüme tıklayın.</p>
+          <div className="h-40 flex flex-col items-center justify-center text-gray-500 text-sm border-2 border-dashed border-gray-700/50 rounded-lg">
+            <svg className="w-8 h-8 mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" /></svg>
+            <p>Düzenlemek için tıklayın</p>
+          </div>
         )}
       </div>
 
+      <Modal
+        isOpen={modal.isOpen}
+        onClose={closeModal}
+        title={modal.title}
+        message={modal.message}
+        type={modal.type}
+        onConfirm={modal.onConfirm}
+        inputPlaceholder={modal.inputPlaceholder}
+      />
     </main>
   );
 }

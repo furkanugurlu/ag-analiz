@@ -4,6 +4,8 @@ import { Graph, Node, Edge } from "@repo/shared";
 const app = express();
 const port = process.env.PORT || 3001;
 
+import cors from "cors";
+app.use(cors());
 app.use(express.json());
 
 app.get("/", (req, res) => {
@@ -48,15 +50,20 @@ app.post("/graph/save", async (req, res) => {
 
         if (edges && Array.isArray(edges)) {
             edges.forEach((e: any) => {
-                // Assuming source and target in body are IDs
-                const sourceId = typeof e.source === 'object' ? e.source.id : e.source;
-                const targetId = typeof e.target === 'object' ? e.target.id : e.target;
-                graph.addEdge(sourceId, targetId);
+                // Handle both { sourceId, targetId } (new) and { source, target } (legacy/shared potentially)
+                const sourceId = e.sourceId || (typeof e.source === 'object' ? e.source.id : e.source);
+                const targetId = e.targetId || (typeof e.target === 'object' ? e.target.id : e.target);
+
+                if (sourceId && targetId) {
+                    graph.addEdge(sourceId, targetId);
+                }
             });
         }
 
         const service = SupabaseService.getInstance();
         await service.saveGraph(graph);
+
+        console.log(`[API] Saved ${graph.getNodes().length} nodes and ${graph.getEdges().length} edges.`);
 
         res.json({ success: true, message: "Graph saved to Supabase" });
     } catch (error) {
@@ -69,6 +76,8 @@ app.get("/graph/load", async (req, res) => {
     try {
         const service = SupabaseService.getInstance();
         const graph = await service.loadGraph();
+
+        console.log(`[API] Loaded ${graph.getNodes().length} nodes and ${graph.getEdges().length} edges.`);
 
         res.json({
             nodes: graph.getNodes(),

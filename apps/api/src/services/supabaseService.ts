@@ -36,10 +36,9 @@ export class SupabaseService {
         }));
 
         const edges = graph.getEdges().map((edge) => ({
-            id: undefined, // Let DB generate ID if needed, or maintain consistency if passed
+            // id: undefined, // REMOVED: Do not send ID to allow DB to auto-generate
             source_id: edge.source.id,
             target_id: edge.target.id
-            // Weight is calculated dynamically, no need to store unless specific requirement
         }));
 
         // Upsert nodes
