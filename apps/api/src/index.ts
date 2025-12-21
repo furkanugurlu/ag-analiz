@@ -122,6 +122,84 @@ app.get("/algorithm/dfs/:startNodeId", async (req, res) => {
     }
 });
 
+app.get("/algorithm/dijkstra/:startNodeId/:endNodeId", async (req, res) => {
+    try {
+        const { startNodeId, endNodeId } = req.params;
+        const service = SupabaseService.getInstance();
+
+        const graph = await service.loadGraph();
+        const result = GraphAlgorithms.dijkstra(graph, startNodeId, endNodeId);
+
+        res.json({
+            algorithm: "Dijkstra",
+            startNode: startNodeId,
+            endNode: endNodeId,
+            ...result
+        });
+    } catch (error) {
+        res.status(500).json({ error: (error as Error).message });
+    }
+});
+
+app.get("/algorithm/astar/:startNodeId/:endNodeId", async (req, res) => {
+    try {
+        const { startNodeId, endNodeId } = req.params;
+        const service = SupabaseService.getInstance();
+
+        const graph = await service.loadGraph();
+        const result = GraphAlgorithms.astar(graph, startNodeId, endNodeId);
+
+        res.json({
+            algorithm: "A*",
+            startNode: startNodeId,
+            endNode: endNodeId,
+            ...result
+        });
+    } catch (error) {
+        res.status(500).json({ error: (error as Error).message });
+    }
+});
+
+app.get("/algorithm/centrality/degree", async (req, res) => {
+    try {
+        const service = SupabaseService.getInstance();
+        const graph = await service.loadGraph();
+
+        // Default limit 5
+        const limit = req.query.limit ? parseInt(req.query.limit as string) : 5;
+        const result = GraphAlgorithms.degreeCentrality(graph, limit);
+
+        res.json({
+            algorithm: "Degree Centrality",
+            topNodes: result
+        });
+    } catch (error) {
+        res.status(500).json({ error: (error as Error).message });
+    }
+});
+
+app.get("/algorithm/coloring/welsh-powell", async (req, res) => {
+    try {
+        const service = SupabaseService.getInstance();
+        const graph = await service.loadGraph();
+
+        const colorMap = GraphAlgorithms.welshPowell(graph);
+
+        // Convert Map to object for JSON response
+        const result: Record<string, number> = {};
+        colorMap.forEach((color, id) => {
+            result[id] = color;
+        });
+
+        res.json({
+            algorithm: "Welsh-Powell Coloring",
+            colors: result
+        });
+    } catch (error) {
+        res.status(500).json({ error: (error as Error).message });
+    }
+});
+
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
 });

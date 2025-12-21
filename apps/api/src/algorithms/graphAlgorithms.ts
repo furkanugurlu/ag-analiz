@@ -81,4 +81,227 @@ export class GraphAlgorithms {
         traverse(startNodeId);
         return result;
     }
+
+    private static buildWeightedAdjacencyList(graph: Graph): Map<string, { target: string, weight: number }[]> {
+        const adjList = new Map<string, { target: string, weight: number }[]>();
+
+        graph.getNodes().forEach(node => {
+            adjList.set(node.id, []);
+        });
+
+        graph.getEdges().forEach(edge => {
+            const neighbors = adjList.get(edge.source.id);
+            if (neighbors) {
+                neighbors.push({ target: edge.target.id, weight: edge.weight });
+            }
+        });
+
+        return adjList;
+    }
+
+    static dijkstra(graph: Graph, startNodeId: string, endNodeId: string): { path: string[], cost: number } {
+        const distances = new Map<string, number>();
+        const previous = new Map<string, string | null>();
+        const nodes = graph.getNodes();
+        const adjList = this.buildWeightedAdjacencyList(graph);
+
+        // Priority Queue implementation using simple array
+        const pq: { id: string, dist: number }[] = [];
+
+        // Initialize
+        nodes.forEach(node => {
+            if (node.id === startNodeId) {
+                distances.set(node.id, 0);
+                pq.push({ id: node.id, dist: 0 });
+            } else {
+                distances.set(node.id, Infinity);
+                pq.push({ id: node.id, dist: Infinity });
+            }
+            previous.set(node.id, null);
+        });
+
+        while (pq.length > 0) {
+            // Sort to simulate priority queue (min-heap)
+            pq.sort((a, b) => a.dist - b.dist);
+            const { id: u, dist } = pq.shift()!;
+
+            if (u === endNodeId) break;
+            if (dist === Infinity) break;
+
+            const neighbors = adjList.get(u) || [];
+            for (const neighbor of neighbors) {
+                const alt = dist + neighbor.weight;
+                if (alt < (distances.get(neighbor.target) || Infinity)) {
+                    distances.set(neighbor.target, alt);
+                    previous.set(neighbor.target, u);
+
+                    // Update priority
+                    const existing = pq.find(p => p.id === neighbor.target);
+                    if (existing) {
+                        existing.dist = alt;
+                    } else {
+                        pq.push({ id: neighbor.target, dist: alt });
+                    }
+                }
+            }
+        }
+
+        // Reconstruct path
+        const path: string[] = [];
+        let current: string | null = endNodeId;
+        if (distances.get(endNodeId) === Infinity) {
+            return { path: [], cost: 0 };
+        }
+
+        while (current) {
+            path.unshift(current);
+            current = previous.get(current) || null;
+            if (current === startNodeId) {
+                path.unshift(current);
+                break;
+            }
+        }
+
+        return { path, cost: distances.get(endNodeId) || 0 };
+    }
+
+    static astar(graph: Graph, startNodeId: string, endNodeId: string): { path: string[], cost: number } {
+        const distances = new Map<string, number>(); // gScore
+        const fScores = new Map<string, number>(); // fScore
+        const previous = new Map<string, string | null>();
+        const adjList = this.buildWeightedAdjacencyList(graph);
+
+        const openSet: { id: string, f: number }[] = [];
+
+        // Heuristic: Euclidean Distance
+        const heuristic = (id1: string, id2: string): number => {
+            const n1 = graph.nodes.get(id1);
+            const n2 = graph.nodes.get(id2);
+            if (!n1 || !n2) return 0;
+            return Math.sqrt(Math.pow(n1.x - n2.x, 2) + Math.pow(n1.y - n2.y, 2));
+        };
+
+        // Initialize
+        graph.getNodes().forEach(node => {
+            distances.set(node.id, Infinity);
+            fScores.set(node.id, Infinity);
+            previous.set(node.id, null);
+        });
+
+        distances.set(startNodeId, 0);
+        fScores.set(startNodeId, heuristic(startNodeId, endNodeId));
+        openSet.push({ id: startNodeId, f: fScores.get(startNodeId)! });
+
+        while (openSet.length > 0) {
+            openSet.sort((a, b) => a.f - b.f);
+            const { id: u } = openSet.shift()!;
+
+            if (u === endNodeId) {
+                // Reconstruct path
+                const path: string[] = [];
+                let current: string | null = endNodeId;
+                while (current) {
+                    path.unshift(current);
+                    if (current === startNodeId) break;
+                    current = previous.get(current) || null;
+                }
+                return { path, cost: distances.get(endNodeId) || 0 };
+            }
+
+            const neighbors = adjList.get(u) || [];
+            for (const neighbor of neighbors) {
+                const tentativeGScore = (distances.get(u) || Infinity) + neighbor.weight;
+
+                if (tentativeGScore < (distances.get(neighbor.target) || Infinity)) {
+                    previous.set(neighbor.target, u);
+                    distances.set(neighbor.target, tentativeGScore);
+                    const f = tentativeGScore + heuristic(neighbor.target, endNodeId);
+                    fScores.set(neighbor.target, f);
+
+                    const existing = openSet.find(o => o.id === neighbor.target);
+                    if (!existing) {
+                        openSet.push({ id: neighbor.target, f });
+                    } else {
+                        existing.f = f;
+                    }
+                }
+            }
+        }
+
+        return { path: [], cost: 0 };
+    }
+
+    static degreeCentrality(graph: Graph, limit: number = 5): { id: string, degree: number }[] {
+        const degrees = new Map<string, number>();
+        const nodes = graph.getNodes();
+
+        nodes.forEach(node => degrees.set(node.id, 0));
+
+        graph.getEdges().forEach(edge => {
+            degrees.set(edge.source.id, (degrees.get(edge.source.id) || 0) + 1);
+            degrees.set(edge.target.id, (degrees.get(edge.target.id) || 0) + 1); // Assuming undirected for centrality
+        });
+
+        return Array.from(degrees.entries())
+            .map(([id, degree]) => ({ id, degree }))
+            .sort((a, b) => b.degree - a.degree)
+            .slice(0, limit);
+    }
+
+    static welshPowell(graph: Graph): Map<string, number> {
+        const colors = new Map<string, number>();
+        const degrees = new Map<string, number>();
+        const adjList = this.buildAdjacencyList(graph); // This gives directed list
+
+        // For coloring, we need undirected adjacency to ensure neighbors don't share color
+        const undirectedAdj = new Map<string, Set<string>>();
+        graph.getNodes().forEach(n => undirectedAdj.set(n.id, new Set()));
+
+        graph.getEdges().forEach(e => {
+            undirectedAdj.get(e.source.id)?.add(e.target.id);
+            undirectedAdj.get(e.target.id)?.add(e.source.id);
+        });
+
+        // 1. Calculate degrees
+        undirectedAdj.forEach((neighbors, id) => {
+            degrees.set(id, neighbors.size);
+        });
+
+        // 2. Sort vertices by degree in descending order
+        const sortedNodes = graph.getNodes().sort((a, b) => {
+            return (degrees.get(b.id) || 0) - (degrees.get(a.id) || 0);
+        });
+
+        let currentColor = 1;
+
+        // 3. Assign colors
+        // Loop until all nodes are colored
+        while (colors.size < sortedNodes.length) {
+            const uncolored = sortedNodes.filter(n => !colors.has(n.id));
+
+            // Try to color uncolored nodes with current color
+            uncolored.forEach(node => {
+                const neighbors = undirectedAdj.get(node.id);
+
+                // Check if any neighbor has the current color
+                let canColor = true;
+                if (neighbors) {
+                    for (const neighborId of neighbors) {
+                        if (colors.get(neighborId) === currentColor) {
+                            canColor = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (canColor) {
+                    colors.set(node.id, currentColor);
+                }
+            });
+
+            currentColor++;
+        }
+
+        return colors;
+    }
 }
