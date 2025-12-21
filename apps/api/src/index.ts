@@ -80,6 +80,48 @@ app.get("/graph/load", async (req, res) => {
     }
 });
 
+import { GraphAlgorithms } from "./algorithms/graphAlgorithms";
+
+app.get("/algorithm/bfs/:startNodeId", async (req, res) => {
+    try {
+        const { startNodeId } = req.params;
+        const service = SupabaseService.getInstance();
+
+        // Load current graph state from DB to ensure we run algo on persistent data
+        const graph = await service.loadGraph();
+
+        const visitOrder = GraphAlgorithms.bfs(graph, startNodeId);
+
+        res.json({
+            algorithm: "BFS",
+            startNode: startNodeId,
+            visitedOrder: visitOrder
+        });
+    } catch (error) {
+        res.status(500).json({ error: (error as Error).message });
+    }
+});
+
+app.get("/algorithm/dfs/:startNodeId", async (req, res) => {
+    try {
+        const { startNodeId } = req.params;
+        const service = SupabaseService.getInstance();
+
+        // Load current graph state from DB
+        const graph = await service.loadGraph();
+
+        const visitOrder = GraphAlgorithms.dfs(graph, startNodeId);
+
+        res.json({
+            algorithm: "DFS",
+            startNode: startNodeId,
+            visitedOrder: visitOrder
+        });
+    } catch (error) {
+        res.status(500).json({ error: (error as Error).message });
+    }
+});
+
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
 });
