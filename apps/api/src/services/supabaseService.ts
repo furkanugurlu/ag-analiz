@@ -41,12 +41,34 @@ export class SupabaseService {
             target_id: edge.target.id
         }));
 
-        // Upsert nodes
-        const { error: nodeError } = await this.supabase
-            .from("nodes")
-            .upsert(nodes, { onConflict: "id" });
+        const nodeIds = nodes.map(n => n.id);
 
-        if (nodeError) throw new Error(`Error saving nodes: ${nodeError.message}`);
+        // Delete nodes that are NOT in the incoming list (i.e., deleted nodes)
+        if (nodeIds.length > 0) {
+            const { error: deleteNodesError } = await this.supabase
+                .from("nodes")
+                .delete()
+                .not("id", "in", `(${nodeIds.join(",")})`);
+
+            if (deleteNodesError) throw new Error(`Error deleting removed nodes: ${deleteNodesError.message}`);
+        } else {
+            // If no nodes in request, delete all nodes
+            const { error: deleteAllNodesError } = await this.supabase
+                .from("nodes")
+                .delete()
+                .neq("id", "00000000-0000-0000-0000-000000000000");
+
+            if (deleteAllNodesError) throw new Error(`Error deleting all nodes: ${deleteAllNodesError.message}`);
+        }
+
+        // Upsert remaining/updated nodes
+        if (nodes.length > 0) {
+            const { error: nodeError } = await this.supabase
+                .from("nodes")
+                .upsert(nodes, { onConflict: "id" });
+
+            if (nodeError) throw new Error(`Error saving nodes: ${nodeError.message}`);
+        }
 
         // Clear existing edges and re-insert (simple strategy for full graph save)
         // In a production scenario, you might want more complex diffing

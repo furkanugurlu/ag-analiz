@@ -15,14 +15,18 @@ export class Edge {
         }
     }
 
-    /**
-     * Calculates weight based on the formula: 1 + sqrt(Delta^2...)
-     * Specifically using interactionCount and connectionCount differences.
-     */
     static calculateWeight(node1: Node, node2: Node): number {
+        const deltaActive = (node1.properties.activity || 0) - (node2.properties.activity || 0);
         const deltaInteraction = (node1.properties.interactionCount || 0) - (node2.properties.interactionCount || 0);
         const deltaConnection = (node1.properties.connectionCount || 0) - (node2.properties.connectionCount || 0);
 
-        return 1 + Math.sqrt(Math.pow(deltaInteraction, 2) + Math.pow(deltaConnection, 2));
+        const distance = Math.sqrt(
+            Math.pow(deltaActive, 2) +
+            Math.pow(deltaInteraction, 2) +
+            Math.pow(deltaConnection, 2)
+        );
+
+        // Formula: 1 / (1 + Distance)
+        return 1 / (1 + distance);
     }
 }

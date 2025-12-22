@@ -10,19 +10,10 @@ export class GraphAlgorithms {
             adjList.set(node.id, []);
         });
 
-        // Populate with edges (Assuming undirected or directed based on Edge definition? 
-        // Usually graph analysis on such coords is undirected unless specified.
-        // The previous prompt implies simple connections. Let's assume edges are directed as per Edge class (source->target) 
-        // BUT for interaction networks usually we might traverse both ways? 
-        // PDF says "Source->Target". Let's stick to directed for now unless "Undirected" is specified.
-        // Wait, typical Graph traversal usually implies following the edge direction.
-        // If user wants undirected, we'd add both ways. Let's stick to directed (source -> target).
-
+        // Treat edges as Undirected (add both ways) because UI does not show arrows
         graph.getEdges().forEach(edge => {
-            const neighbors = adjList.get(edge.source.id);
-            if (neighbors) {
-                neighbors.push(edge.target.id);
-            }
+            adjList.get(edge.source.id)?.push(edge.target.id);
+            adjList.get(edge.target.id)?.push(edge.source.id);
         });
 
         return adjList;
@@ -90,10 +81,8 @@ export class GraphAlgorithms {
         });
 
         graph.getEdges().forEach(edge => {
-            const neighbors = adjList.get(edge.source.id);
-            if (neighbors) {
-                neighbors.push({ target: edge.target.id, weight: edge.weight });
-            }
+            adjList.get(edge.source.id)?.push({ target: edge.target.id, weight: edge.weight });
+            adjList.get(edge.target.id)?.push({ target: edge.source.id, weight: edge.weight });
         });
 
         return adjList;
@@ -251,20 +240,12 @@ export class GraphAlgorithms {
     static welshPowell(graph: Graph): Map<string, number> {
         const colors = new Map<string, number>();
         const degrees = new Map<string, number>();
-        const adjList = this.buildAdjacencyList(graph); // This gives directed list
-
-        // For coloring, we need undirected adjacency to ensure neighbors don't share color
-        const undirectedAdj = new Map<string, Set<string>>();
-        graph.getNodes().forEach(n => undirectedAdj.set(n.id, new Set()));
-
-        graph.getEdges().forEach(e => {
-            undirectedAdj.get(e.source.id)?.add(e.target.id);
-            undirectedAdj.get(e.target.id)?.add(e.source.id);
-        });
+        // Use the unified Undirected Adjacency List
+        const adjList = this.buildAdjacencyList(graph);
 
         // 1. Calculate degrees
-        undirectedAdj.forEach((neighbors, id) => {
-            degrees.set(id, neighbors.size);
+        adjList.forEach((neighbors, id) => {
+            degrees.set(id, neighbors.length);
         });
 
         // 2. Sort vertices by degree in descending order
@@ -275,15 +256,12 @@ export class GraphAlgorithms {
         let currentColor = 1;
 
         // 3. Assign colors
-        // Loop until all nodes are colored
         while (colors.size < sortedNodes.length) {
             const uncolored = sortedNodes.filter(n => !colors.has(n.id));
 
-            // Try to color uncolored nodes with current color
             uncolored.forEach(node => {
-                const neighbors = undirectedAdj.get(node.id);
+                const neighbors = adjList.get(node.id);
 
-                // Check if any neighbor has the current color
                 let canColor = true;
                 if (neighbors) {
                     for (const neighborId of neighbors) {
@@ -303,5 +281,35 @@ export class GraphAlgorithms {
         }
 
         return colors;
+    }
+    static getConnectedComponents(graph: Graph): string[][] {
+        const visited = new Set<string>();
+        const components: string[][] = [];
+        const nodes = graph.getNodes();
+        const adjList = this.buildAdjacencyList(graph);
+
+        for (const node of nodes) {
+            if (!visited.has(node.id)) {
+                const component: string[] = [];
+                const queue: string[] = [node.id];
+                visited.add(node.id);
+
+                while (queue.length > 0) {
+                    const u = queue.shift()!;
+                    component.push(u);
+
+                    const neighbors = adjList.get(u) || [];
+                    for (const v of neighbors) {
+                        if (!visited.has(v)) {
+                            visited.add(v);
+                            queue.push(v);
+                        }
+                    }
+                }
+                components.push(component);
+            }
+        }
+
+        return components;
     }
 }

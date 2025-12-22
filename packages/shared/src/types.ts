@@ -1,5 +1,6 @@
 export interface INodeProperties {
     isActive: boolean;
+    activity: number;
     interactionCount: number;
     connectionCount: number;
     [key: string]: any; // Allow for other dynamic properties

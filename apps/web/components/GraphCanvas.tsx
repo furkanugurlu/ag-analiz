@@ -54,11 +54,11 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
     };
 
     const getNodeAtPos = (x: number, y: number) => {
-        // Simple collision detection for circles radius 20
+        // Simple collision detection for circles radius 35 (using 45 for better hit detection)
         return nodes.find(node => {
             const dx = node.x - x;
             const dy = node.y - y;
-            return Math.sqrt(dx * dx + dy * dy) < 20;
+            return Math.sqrt(dx * dx + dy * dy) < 45;
         });
     };
 
@@ -88,7 +88,11 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
         setMousePos({ x, y });
 
         if (isDragging && draggedNodeId) {
-            onNodeMove?.(draggedNodeId, x, y);
+            // Clamp node within canvas boundaries
+            const nodeRadius = 35;
+            const clampedX = Math.max(nodeRadius, Math.min(width - nodeRadius, x));
+            const clampedY = Math.max(nodeRadius, Math.min(height - nodeRadius, y));
+            onNodeMove?.(draggedNodeId, clampedX, clampedY);
         }
     };
 
@@ -167,11 +171,31 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
                     ctx.strokeStyle = '#EF4444'; // Red
                     ctx.lineWidth = 4;
                 } else {
-                    ctx.strokeStyle = '#374151'; // Gray-700 (Darker for better contrast)
+                    ctx.strokeStyle = '#4B5563'; // Gray-600 (Slightly lighter for visibility)
                     ctx.lineWidth = 2;
                 }
 
                 ctx.stroke();
+
+                // Draw weight label on edge midpoint
+                const weight = (edge as any).weight;
+                if (weight !== undefined && weight !== null) {
+                    const midX = (source.x + target.x) / 2;
+                    const midY = (source.y + target.y) / 2;
+
+                    // Background for label
+                    ctx.fillStyle = '#1F2937';
+                    ctx.beginPath();
+                    ctx.arc(midX, midY, 12, 0, 2 * Math.PI);
+                    ctx.fill();
+
+                    // Weight text
+                    ctx.fillStyle = '#9CA3AF';
+                    ctx.font = '10px Inter, Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(weight.toFixed ? weight.toFixed(1) : String(weight), midX, midY);
+                }
             }
         });
 
@@ -193,23 +217,24 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
         // Draw Nodes
         renderNodes.forEach(node => {
             const isSelected = selectedNodeId === node.id;
+            const nodeRadius = 35; // Increased from 20 to 35
 
             // Selection Glow
             if (isSelected) {
                 ctx.beginPath();
-                ctx.arc(node.x, node.y, 28, 0, 2 * Math.PI);
+                ctx.arc(node.x, node.y, nodeRadius + 8, 0, 2 * Math.PI);
                 ctx.fillStyle = 'rgba(59, 130, 246, 0.5)'; // Blue glow
                 ctx.fill();
 
                 ctx.beginPath();
-                ctx.arc(node.x, node.y, 24, 0, 2 * Math.PI);
+                ctx.arc(node.x, node.y, nodeRadius + 4, 0, 2 * Math.PI);
                 ctx.fillStyle = 'rgba(59, 130, 246, 0.8)'; // Inner Blue glow
                 ctx.fill();
             }
 
             // Draw circle
             ctx.beginPath();
-            ctx.arc(node.x, node.y, 20, 0, 2 * Math.PI);
+            ctx.arc(node.x, node.y, nodeRadius, 0, 2 * Math.PI);
 
             // Color Logic: Custom > Active/Passive
             if (customNodeColors[node.id]) {
@@ -236,10 +261,12 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
             // Draw Label
             ctx.fillStyle = '#FFFFFF'; // White text
-            ctx.font = isSelected ? 'bold 13px Inter, Arial' : '12px Inter, Arial';
+            ctx.font = isSelected ? 'bold 15px Inter, Arial' : '14px Inter, Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(node.label || node.id.substring(0, 4), node.x, node.y);
+            // Simple truncation if too long, though with bigger radius we have more space
+            const label = node.label || node.id.substring(0, 4);
+            ctx.fillText(label, node.x, node.y);
         });
 
         // Update parent if we calculated layout positions so state matches visual
@@ -252,8 +279,8 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
     }, [nodes, edges, width, height, customNodeColors, highlightedPath, selectedNodeId, isConnecting, connectingNodeId, mousePos]);
 
     return (
-        <div className="border border-gray-700 rounded-lg overflow-hidden bg-gray-900 shadow-xl relative">
-            <div className="absolute top-2 left-2 text-xs text-gray-500 pointer-events-none select-none z-10">
+        <div className="border border-gray-700 rounded-lg overflow-auto bg-gray-900 shadow-xl relative custom-scrollbar">
+            <div className="absolute top-2 left-2 text-xs text-gray-500 pointer-events-none select-none z-10 bg-gray-900/50 px-2 py-1 rounded-md">
                 Shift + Drag: Bağlantı Oluştur | Çift Tıkla: Node Ekle
             </div>
             <canvas

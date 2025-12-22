@@ -12,7 +12,7 @@ export class Node {
         label: string = "",
         x: number = 0,
         y: number = 0,
-        properties: INodeProperties = { isActive: true, interactionCount: 0, connectionCount: 0 }
+        properties: INodeProperties = { isActive: true, activity: 0, interactionCount: 0, connectionCount: 0 }
     ) {
         this.id = id;
         this.label = label || id;
