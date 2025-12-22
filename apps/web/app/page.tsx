@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import GraphCanvas from '../components/GraphCanvas';
 import Modal from '../components/Modal';
 import LoadingOverlay from '../components/LoadingOverlay';
@@ -11,6 +11,27 @@ import { INode } from '@repo/shared';
 
 export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const updateSize = () => {
+      if (containerRef.current) {
+        setCanvasSize({
+          width: containerRef.current.clientWidth,
+          height: containerRef.current.clientHeight
+        });
+      }
+    };
+
+    updateSize();
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(containerRef.current);
+
+    return () => observer.disconnect();
+  }, []);
 
   const {
     nodes, edges, selectedNode, loading, algoLoading, algoResults, customColors, highlightedPath, modal,
@@ -63,7 +84,10 @@ export default function Home() {
             </div>
           )}
 
-          <div className="flex-1 w-full min-h-[500px] md:min-h-[650px] bg-[#1e293b]/50 border border-slate-700/50 rounded-3xl shadow-2xl backdrop-blur-md overflow-hidden relative group">
+          <div
+            ref={containerRef}
+            className="flex-1 w-full min-h-[500px] md:min-h-[650px] bg-[#1e293b]/50 border border-slate-700/50 rounded-3xl shadow-2xl backdrop-blur-md relative group overflow-hidden"
+          >
             {algoLoading && (
               <div className="absolute top-4 right-4 z-10 px-4 py-2 bg-yellow-500/20 backdrop-blur-md border border-yellow-500/50 rounded-full text-yellow-300 font-mono text-xs animate-pulse shadow-[0_0_15px_rgba(234,179,8,0.3)] flex items-center gap-2">
                 <span className="w-2 h-2 bg-yellow-400 rounded-full animate-ping" />
@@ -76,7 +100,7 @@ export default function Home() {
             <GraphCanvas
               nodes={nodes}
               edges={edges}
-              width={1200}
+              width={canvasSize.width}
               height={800}
               onNodeMove={updateNodePos}
               onNodeSelect={handleNodeSelect}

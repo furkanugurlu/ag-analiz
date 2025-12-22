@@ -47,9 +47,15 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
         const canvas = canvasRef.current;
         if (!canvas) return { x: 0, y: 0 };
         const rect = canvas.getBoundingClientRect();
+
+        // Scale mouse coordinates to match the internal canvas resolution
+        // (Important if CSS or Tailwind has scaled the canvas visually)
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+
         return {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
+            x: (e.clientX - rect.left) * scaleX,
+            y: (e.clientY - rect.top) * scaleY
         };
     };
 
@@ -279,7 +285,7 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
     }, [nodes, edges, width, height, customNodeColors, highlightedPath, selectedNodeId, isConnecting, connectingNodeId, mousePos]);
 
     return (
-        <div className="border border-gray-700 rounded-lg overflow-auto bg-gray-900 shadow-xl relative custom-scrollbar">
+        <div className="w-full h-full border border-gray-700 rounded-lg overflow-auto bg-gray-900 shadow-xl relative custom-scrollbar">
             <div className="absolute top-2 left-2 text-xs text-gray-500 pointer-events-none select-none z-10 bg-gray-900/50 px-2 py-1 rounded-md">
                 Shift + Drag: Bağlantı Oluştur | Çift Tıkla: Node Ekle
             </div>
