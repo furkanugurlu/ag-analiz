@@ -24,6 +24,12 @@ interface GraphAnalysisState {
         data: any;
         executionTimeMs: number;
     } | null;
+    algoHistory: {
+        type: string;
+        data: any;
+        executionTimeMs: number;
+        timestamp: number;
+    }[];
     customColors: Record<string, string>;
     highlightedPath: string[];
 
@@ -84,6 +90,7 @@ export const useGraphStore = create<GraphAnalysisState>((set, get) => ({
     loading: false,
     algoLoading: false,
     algoResults: null,
+    algoHistory: [],
     customColors: {},
     highlightedPath: [],
     modal: { isOpen: false, title: '', message: '', type: 'info' },
@@ -351,12 +358,17 @@ export const useGraphStore = create<GraphAnalysisState>((set, get) => ({
             get().openModal({ title: 'Uyarı', message: 'Lütfen başlangıç düğümü seçin.', type: 'error' });
             return;
         }
+        const prevResult = get().algoResults;
         set({ algoLoading: true, customColors: {}, highlightedPath: [], algoResults: null });
         try { await get().saveGraph(); } catch (e) { console.error("Auto-save failed", e); }
         try {
             const { data } = await api.get(`/algorithm/bfs/${selectedNode.id}`);
             const visitOrder = data.visitedOrder as string[];
-            set({ algoResults: { type: 'BFS', data: data, executionTimeMs: data.executionTimeMs } });
+            const result = { type: 'BFS', data: data, executionTimeMs: data.executionTimeMs };
+            set((state) => ({
+                algoResults: result,
+                algoHistory: [...(prevResult ? [{ ...prevResult, timestamp: Date.now() }] : []), ...state.algoHistory].slice(0, 2)
+            }));
             let currentColors: Record<string, string> = {};
             for (let i = 0; i < visitOrder.length; i++) {
                 const nodeId = visitOrder[i] as string;
@@ -377,12 +389,17 @@ export const useGraphStore = create<GraphAnalysisState>((set, get) => ({
             get().openModal({ title: 'Uyarı', message: 'Lütfen başlangıç düğümü seçin.', type: 'error' });
             return;
         }
+        const prevResult = get().algoResults;
         set({ algoLoading: true, customColors: {}, highlightedPath: [], algoResults: null });
         try { await get().saveGraph(); } catch (e) { console.error("Auto-save failed", e); }
         try {
             const { data } = await api.get(`/algorithm/dfs/${selectedNode.id}`);
             const visitOrder = data.visitedOrder as string[];
-            set({ algoResults: { type: 'DFS', data: data, executionTimeMs: data.executionTimeMs } });
+            const result = { type: 'DFS', data: data, executionTimeMs: data.executionTimeMs };
+            set((state) => ({
+                algoResults: result,
+                algoHistory: [...(prevResult ? [{ ...prevResult, timestamp: Date.now() }] : []), ...state.algoHistory].slice(0, 2)
+            }));
             let currentColors: Record<string, string> = {};
             for (let i = 0; i < visitOrder.length; i++) {
                 const nodeId = visitOrder[i] as string;
@@ -398,7 +415,7 @@ export const useGraphStore = create<GraphAnalysisState>((set, get) => ({
     },
 
     runShortestPath: async (targetIdentifier) => {
-        const { selectedNode, nodes } = get();
+        const { selectedNode, nodes, algoResults: prevResult } = get();
         if (!selectedNode) {
             get().openModal({ title: 'Uyarı', message: 'Başlangıç düğümü seçiniz.', type: 'error' });
             return;
@@ -412,7 +429,11 @@ export const useGraphStore = create<GraphAnalysisState>((set, get) => ({
         try { await get().saveGraph(); } catch (e) { console.error("Auto-save failed", e); }
         try {
             const { data } = await api.get(`/algorithm/dijkstra/${selectedNode.id}/${targetNode.id}`);
-            set({ algoResults: { type: 'Dijkstra', data: data, executionTimeMs: data.executionTimeMs } });
+            const result = { type: 'Dijkstra', data: data, executionTimeMs: data.executionTimeMs };
+            set((state) => ({
+                algoResults: result,
+                algoHistory: [...(prevResult ? [{ ...prevResult, timestamp: Date.now() }] : []), ...state.algoHistory].slice(0, 2)
+            }));
             if (data.path && data.path.length > 0) {
                 set({ highlightedPath: data.path });
                 get().openModal({ title: 'Yol Bulundu', message: `Toplam Maliyet: ${data.cost.toFixed(2)}`, type: 'success' });
@@ -427,11 +448,16 @@ export const useGraphStore = create<GraphAnalysisState>((set, get) => ({
     },
 
     runCentrality: async () => {
+        const prevResult = get().algoResults;
         set({ algoLoading: true, customColors: {}, highlightedPath: [], algoResults: null });
         try { await get().saveGraph(); } catch (e) { console.error("Auto-save failed", e); }
         try {
             const { data } = await api.get('/algorithm/centrality/degree');
-            set({ algoResults: { type: 'Centrality', data: data, executionTimeMs: data.executionTimeMs } });
+            const result = { type: 'Centrality', data: data, executionTimeMs: data.executionTimeMs };
+            set((state) => ({
+                algoResults: result,
+                algoHistory: [...(prevResult ? [{ ...prevResult, timestamp: Date.now() }] : []), ...state.algoHistory].slice(0, 2)
+            }));
             const colorMap: Record<string, string> = {};
             data.topNodes.forEach((node: any, idx: number) => {
                 const intensity = 100 - (idx * 15);
@@ -446,11 +472,16 @@ export const useGraphStore = create<GraphAnalysisState>((set, get) => ({
     },
 
     runCommunities: async () => {
+        const prevResult = get().algoResults;
         set({ algoLoading: true, customColors: {}, highlightedPath: [], algoResults: null });
         try { await get().saveGraph(); } catch (e) { console.error("Auto-save failed", e); }
         try {
             const { data } = await api.get('/algorithm/communities');
-            set({ algoResults: { type: 'Communities', data: data, executionTimeMs: data.executionTimeMs } });
+            const result = { type: 'Communities', data: data, executionTimeMs: data.executionTimeMs };
+            set((state) => ({
+                algoResults: result,
+                algoHistory: [...(prevResult ? [{ ...prevResult, timestamp: Date.now() }] : []), ...state.algoHistory].slice(0, 2)
+            }));
             const palette = ['#F87171', '#60A5FA', '#34D399', '#FBBF24', '#A78BFA', '#F472B6', '#2DD4BF', '#FB923C'];
             const colorMap: Record<string, string> = {};
             data.communities.forEach((community: string[], idx: number) => {
@@ -468,11 +499,16 @@ export const useGraphStore = create<GraphAnalysisState>((set, get) => ({
     },
 
     runColoring: async () => {
+        const prevResult = get().algoResults;
         set({ algoLoading: true, customColors: {}, highlightedPath: [] });
         try { await get().saveGraph(); } catch (e) { console.error("Auto-save failed", e); }
         try {
             const { data } = await api.get('/algorithm/coloring/welsh-powell');
-            set({ algoResults: { type: 'Coloring', data: data, executionTimeMs: data.executionTimeMs } });
+            const result = { type: 'Coloring', data: data, executionTimeMs: data.executionTimeMs };
+            set((state) => ({
+                algoResults: result,
+                algoHistory: [...(prevResult ? [{ ...prevResult, timestamp: Date.now() }] : []), ...state.algoHistory].slice(0, 2)
+            }));
             const colors = data.colors as Record<string, number>;
             const palette = ['#F87171', '#60A5FA', '#34D399', '#FBBF24', '#A78BFA', '#F472B6'];
             const colorMap: Record<string, string> = {};

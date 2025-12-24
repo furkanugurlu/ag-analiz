@@ -4,7 +4,7 @@ import React from 'react';
 import { useGraphStore } from '../store/useGraphStore';
 
 const ResultsTable: React.FC = () => {
-    const { algoResults, nodes } = useGraphStore();
+    const { algoResults, algoHistory, nodes } = useGraphStore();
 
     if (!algoResults) return null;
 
@@ -209,6 +209,35 @@ const ResultsTable: React.FC = () => {
             </div>
             <div className="p-4 overflow-y-auto custom-scrollbar">
                 {renderData()}
+                {algoHistory.length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-gray-800">
+                        <div className="text-sm font-semibold text-gray-200 mb-2">Geçmiş</div>
+                        <div className="space-y-3 max-h-48 overflow-y-auto">
+                            {algoHistory.map((item, idx) => (
+                                <div key={(item.timestamp || 0) + idx} className="bg-gray-800/40 border border-gray-700/60 rounded-lg p-3">
+                                    <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
+                                        <span>{item.type}</span>
+                                        <span>{item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : '—'}</span>
+                                    </div>
+                                    <div className="text-xs text-gray-300">
+                                        {item.type === "Dijkstra" || item.type === "A*"
+                                            ? `Yol: ${(item.data?.path || []).length}, Maliyet: ${Number(item.data?.cost || 0).toFixed(2)}`
+                                            : item.type === "BFS" || item.type === "DFS"
+                                                ? `Ziyaret: ${(item.data?.visitedOrder || []).length}`
+                                                : item.type === "Centrality"
+                                                    ? `Top N: ${(item.data?.topNodes || []).length}`
+                                                    : item.type === "Communities"
+                                                        ? `Topluluk: ${(item.data?.communities || []).length}`
+                                                        : item.type === "Coloring"
+                                                            ? `Düğüm: ${Object.keys(item.data?.colors || {}).length}`
+                                                            : ''}
+                                        {item.executionTimeMs !== undefined ? ` · ${item.executionTimeMs}ms` : ''}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
