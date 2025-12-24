@@ -4,7 +4,7 @@ import React from 'react';
 import { useGraphStore } from '../store/useGraphStore';
 
 const ResultsTable: React.FC = () => {
-    const { algoResults, algoHistory, nodes } = useGraphStore();
+    const { algoResults, algoHistory, nodes, playbackOrder, playbackIndex, stepPlayback } = useGraphStore();
 
     if (!algoResults) return null;
 
@@ -62,22 +62,54 @@ const ResultsTable: React.FC = () => {
             case 'BFS':
             case 'DFS':
                 return (
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="border-b border-gray-700">
-                                <th className="py-2 px-4 text-gray-400 font-medium">Sıra</th>
-                                <th className="py-2 px-4 text-gray-400 font-medium">Düğüm</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {data.visitedOrder.map((id: string, idx: number) => (
-                                <tr key={id} className="border-b border-gray-800/50 hover:bg-gray-700/30 transition-colors">
-                                    <td className="py-2 px-4 text-gray-300 font-mono">{idx + 1}</td>
-                                    <td className="py-2 px-4 text-white">{getNodeLabel(id)}</td>
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-3 px-3 py-2 bg-gray-800/60 border border-gray-700 rounded-lg">
+                            <div className="inline-flex items-center gap-2 text-xs text-gray-200">
+                                <span>Adım</span>
+                                <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-300 font-semibold">
+                                    {Math.max(playbackIndex, -1) + 1} / {playbackOrder.length}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => stepPlayback(-1)}
+                                    disabled={playbackIndex <= -1}
+                                    className="px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-40 text-xs text-gray-200"
+                                >
+                                    ← Geri
+                                </button>
+                                <button
+                                    onClick={() => stepPlayback(1)}
+                                    disabled={playbackIndex >= playbackOrder.length - 1}
+                                    className="px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-40 text-xs text-gray-200"
+                                >
+                                    İleri →
+                                </button>
+                            </div>
+                        </div>
+                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-800/60 border border-gray-700 text-xs text-gray-200">
+                            <span>Ziyaret edilen</span>
+                            <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-300 font-semibold">
+                                {(data.visitedOrder || []).length} / {nodes.length}
+                            </span>
+                        </div>
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="border-b border-gray-700">
+                                    <th className="py-2 px-4 text-gray-400 font-medium">Sıra</th>
+                                    <th className="py-2 px-4 text-gray-400 font-medium">Düğüm</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {data.visitedOrder.map((id: string, idx: number) => (
+                                    <tr key={id} className="border-b border-gray-800/50 hover:bg-gray-700/30 transition-colors">
+                                        <td className="py-2 px-4 text-gray-300 font-mono">{idx + 1}</td>
+                                        <td className="py-2 px-4 text-white">{getNodeLabel(id)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 );
 
             case 'Dijkstra':

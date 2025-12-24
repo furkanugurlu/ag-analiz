@@ -38,7 +38,7 @@ export default function Home() {
   }, []);
 
   const {
-    nodes, edges, selectedNode, loading, algoLoading, algoResults, customColors, highlightedPath, modal,
+    nodes, edges, selectedNode, loading, algoLoading, algoResults, customColors, highlightedPath, modal, playbackOrder, playbackIndex,
     fetchGraph, saveGraph, addNode, updateNodePos, selectNode, updateNodeProperty, updateNodeLabel, addEdge,
     runBFS, runDFS, runColoring, runShortestPath, runCentrality, runCommunities, openModal, closeModal,
     exportGraphJSON, exportGraphCSV, deleteNode, importGraphJSON, generateSmallGraph, generateMediumGraph, clearGraph, autoLayout
@@ -70,6 +70,7 @@ export default function Home() {
 
   const viewportHeight = mounted && typeof window !== "undefined" ? window.innerHeight : 900;
   const canvasHeight = mounted ? Math.max(320, Math.min(canvasSize.height, viewportHeight * 0.8)) : 600;
+  const playbackFocusId = playbackIndex >= 0 ? playbackOrder[playbackIndex] : null;
 
   return (
     <main className="min-h-screen bg-[#0f172a] text-slate-200 p-4 md:p-8 flex flex-col gap-6 md:gap-8 font-sans overflow-x-hidden">
@@ -129,6 +130,7 @@ export default function Home() {
               customNodeColors={customColors}
               highlightedPath={highlightedPath}
               selectedNodeId={selectedNode?.id}
+              focusNodeId={playbackFocusId}
             />
           </div>
         </div>

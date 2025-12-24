@@ -15,6 +15,7 @@ interface GraphCanvasProps {
     customNodeColors?: Record<string, string>;
     highlightedPath?: string[];
     selectedNodeId?: string | null;
+    focusNodeId?: string | null;
 }
 
 const GraphCanvas: React.FC<GraphCanvasProps> = ({
@@ -28,7 +29,8 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
     onEdgeAdd,
     customNodeColors = {},
     highlightedPath = [],
-    selectedNodeId = null
+    selectedNodeId = null,
+    focusNodeId = null
 }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const wrapperRef = useRef<HTMLDivElement>(null);
@@ -170,20 +172,16 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+        const visitedSet = new Set(highlightedPath);
+
         edges.forEach(edge => {
             const source = laidOutNodes.find(n => n.id === edge.sourceId);
             const target = laidOutNodes.find(n => n.id === edge.targetId);
 
             if (source && target) {
                 let isHighlighted = false;
-                if (highlightedPath.length > 1) {
-                    for (let i = 0; i < highlightedPath.length - 1; i++) {
-                        if ((highlightedPath[i] === edge.sourceId && highlightedPath[i + 1] === edge.targetId) ||
-                            (highlightedPath[i] === edge.targetId && highlightedPath[i + 1] === edge.sourceId)) {
-                            isHighlighted = true;
-                            break;
-                        }
-                    }
+                if (visitedSet.has(edge.sourceId) && visitedSet.has(edge.targetId)) {
+                    isHighlighted = true;
                 }
 
                 ctx.beginPath();
@@ -280,6 +278,25 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
         });
 
     }, [laidOutNodes, edges, width, height, customNodeColors, highlightedPath, selectedNodeId, isConnecting, connectingNodeId, mousePos]);
+
+    useEffect(() => {
+        if (!focusNodeId) return;
+        const wrapper = wrapperRef.current;
+        if (!wrapper) return;
+        const target = laidOutNodes.find(n => n.id === focusNodeId);
+        if (!target) return;
+
+        const targetLeft = target.x - wrapper.clientWidth / 2;
+        const targetTop = target.y - wrapper.clientHeight / 2;
+        const maxLeft = Math.max(0, canvasWidth - wrapper.clientWidth);
+        const maxTop = Math.max(0, canvasHeight - wrapper.clientHeight);
+
+        wrapper.scrollTo({
+            left: Math.max(0, Math.min(targetLeft, maxLeft)),
+            top: Math.max(0, Math.min(targetTop, maxTop)),
+            behavior: 'smooth'
+        });
+    }, [focusNodeId, laidOutNodes, canvasWidth, canvasHeight]);
 
     return (
         <div
