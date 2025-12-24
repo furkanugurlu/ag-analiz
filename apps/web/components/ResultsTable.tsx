@@ -10,6 +10,51 @@ const ResultsTable: React.FC = () => {
 
     const getNodeLabel = (id: string) => nodes.find(n => n.id === id)?.label || id;
 
+    const summaryBadges = () => {
+        const { type, data } = algoResults;
+        const items: { label: string; value: string }[] = [];
+
+        if (type === "BFS" || type === "DFS") {
+            const count = (data.visitedOrder || []).length;
+            items.push({ label: "Ziyaret", value: String(count) });
+        }
+
+        if (type === "Dijkstra" || type === "A*") {
+            const pathLen = (data.path || []).length;
+            const cost = typeof data.cost === "number" ? data.cost.toFixed(2) : "0";
+            items.push({ label: "Yol Uzunluğu", value: String(pathLen) });
+            items.push({ label: "Maliyet", value: cost });
+        }
+
+        if (type === "Centrality") {
+            const top = (data.topNodes || []).length;
+            items.push({ label: "Top N", value: String(top) });
+        }
+
+        if (type === "Communities") {
+            const count = (data.communities || []).length;
+            items.push({ label: "Topluluk", value: String(count) });
+        }
+
+        if (type === "Coloring") {
+            const total = Object.keys(data.colors || {}).length;
+            const uniqueColors = new Set(Object.values(data.colors || {})).size;
+            items.push({ label: "Düğüm", value: String(total) });
+            items.push({ label: "Renk", value: String(uniqueColors) });
+        }
+
+        return items.length ? (
+            <div className="flex flex-wrap gap-2 mb-3">
+                {items.map((item, idx) => (
+                    <span key={idx} className="px-2.5 py-1 text-xs rounded-full bg-gray-800/70 border border-gray-700 text-gray-200 flex items-center gap-1">
+                        <span className="text-gray-400">{item.label}:</span>
+                        <span className="font-semibold text-blue-300">{item.value}</span>
+                    </span>
+                ))}
+            </div>
+        ) : null;
+    };
+
     const renderData = () => {
         const { type, data } = algoResults;
 
@@ -151,6 +196,7 @@ const ResultsTable: React.FC = () => {
                     <p className="text-xs text-gray-400 mt-1">
                         Hesaplama Süresi: <span className="text-blue-400 font-mono">{algoResults.executionTimeMs}ms</span>
                     </p>
+                    {summaryBadges()}
                 </div>
                 <button
                     onClick={() => useGraphStore.setState({ algoResults: null })}
