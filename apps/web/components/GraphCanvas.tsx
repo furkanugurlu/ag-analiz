@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { INode, IEdge } from '@repo/shared';
 
 interface GraphCanvasProps {
@@ -33,6 +33,7 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
+    const nodeRadius = 35;
 
     // Edge Creation State
     const [isConnecting, setIsConnecting] = useState(false);
@@ -42,6 +43,31 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
     // Initial Layout Logic (only runs once if nodes have 0,0 coords)
     useEffect(() => {
     }, []);
+
+    const renderNodes = useMemo(() => {
+        // Keep nodes within current canvas bounds so they stay visible on small screens
+        const clamp = (val: number, min: number, max: number) => Math.max(min, Math.min(max, val));
+        const boundedNodes = nodes.map((node) => ({
+            ...node,
+            x: clamp(node.x || width / 2, nodeRadius, width - nodeRadius),
+            y: clamp(node.y || height / 2, nodeRadius, height - nodeRadius)
+        }));
+
+        // Auto layout if all positions are 0
+        const needsLayout = boundedNodes.every(n => n.x === nodeRadius && n.y === nodeRadius) && boundedNodes.length > 0;
+        if (!needsLayout) return boundedNodes;
+
+        const centerX = width / 2;
+        const centerY = height / 2;
+        const radius = Math.min(centerX, centerY) * 0.8;
+        const angleStep = (2 * Math.PI) / boundedNodes.length;
+
+        return boundedNodes.map((node, index) => ({
+            ...node,
+            x: centerX + radius * Math.cos(index * angleStep),
+            y: centerY + radius * Math.sin(index * angleStep)
+        }));
+    }, [nodes, width, height]);
 
     const getMousePos = (e: React.MouseEvent) => {
         const canvas = canvasRef.current;
@@ -61,7 +87,7 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
     const getNodeAtPos = (x: number, y: number) => {
         // Simple collision detection for circles radius 35 (using 45 for better hit detection)
-        return nodes.find(node => {
+        return renderNodes.find(node => {
             const dx = node.x - x;
             const dy = node.y - y;
             return Math.sqrt(dx * dx + dy * dy) < 45;
@@ -95,7 +121,6 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
         if (isDragging && draggedNodeId) {
             // Clamp node within canvas boundaries
-            const nodeRadius = 35;
             const clampedX = Math.max(nodeRadius, Math.min(width - nodeRadius, x));
             const clampedY = Math.max(nodeRadius, Math.min(height - nodeRadius, y));
             onNodeMove?.(draggedNodeId, clampedX, clampedY);
@@ -137,23 +162,8 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         // ... (layout logic same as before)
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2;
-        const radius = Math.min(centerX, centerY) * 0.8;
-        const needsLayout = nodes.every(n => n.x === 0 && n.y === 0) && nodes.length > 0;
-
-        const renderNodes = needsLayout ? nodes.map((node, index) => {
-            const angleStep = (2 * Math.PI) / nodes.length;
-            return {
-                ...node,
-                x: centerX + radius * Math.cos(index * angleStep),
-                y: centerY + radius * Math.sin(index * angleStep)
-            };
-        }) : nodes;
-
         // Draw Edges
         edges.forEach(edge => {
-            // ... existing edge drawing code
             const source = renderNodes.find(n => n.id === edge.sourceId);
             const target = renderNodes.find(n => n.id === edge.targetId);
 
@@ -223,8 +233,6 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
         // Draw Nodes
         renderNodes.forEach(node => {
             const isSelected = selectedNodeId === node.id;
-            const nodeRadius = 35; // Increased from 20 to 35
-
             // Selection Glow
             if (isSelected) {
                 ctx.beginPath();
@@ -275,14 +283,7 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
             ctx.fillText(label, node.x, node.y);
         });
 
-        // Update parent if we calculated layout positions so state matches visual
-        // This is a bit tricky in render loop, but essential for interaction
-        if (needsLayout && nodes.length > 0) {
-            // Prevent infinite loop by checking if we already dispatched
-            // Ideally parent handles this layout init
-        }
-
-    }, [nodes, edges, width, height, customNodeColors, highlightedPath, selectedNodeId, isConnecting, connectingNodeId, mousePos]);
+    }, [renderNodes, edges, width, height, customNodeColors, highlightedPath, selectedNodeId, isConnecting, connectingNodeId, mousePos]);
 
     return (
         <div className="w-full h-full border border-gray-700 rounded-lg overflow-auto bg-gray-900 shadow-xl relative custom-scrollbar">
