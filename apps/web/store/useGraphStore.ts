@@ -631,9 +631,12 @@ export const useGraphStore = create<GraphAnalysisState>((set, get) => ({
         const exportData = {
             nodes,
             edges: edges.map(e => ({
-                source: nodes.find(n => n.id === e.sourceId)?.label || e.sourceId,
-                target: nodes.find(n => n.id === e.targetId)?.label || e.targetId,
-                weight: (e as any).weight || 1
+                id: e.id,
+                sourceId: e.sourceId,
+                targetId: e.targetId,
+                weight: (e as any).weight || 1,
+                sourceLabel: nodes.find(n => n.id === e.sourceId)?.label || undefined,
+                targetLabel: nodes.find(n => n.id === e.targetId)?.label || undefined
             })),
             adjacencyList: get().getAdjacencyList(),
             adjacencyMatrix: get().getAdjacencyMatrix()
@@ -671,9 +674,25 @@ export const useGraphStore = create<GraphAnalysisState>((set, get) => ({
         reader.onload = (e) => {
             try {
                 const data = JSON.parse(e.target?.result as string);
+                const nodes = data.nodes || [];
+                const labelToId: Record<string, string> = {};
+                nodes.forEach((n: any) => { if (n?.label && n?.id) labelToId[n.label] = n.id; });
+
+                const edges = (data.edges || []).flatMap((edge: any) => {
+                    const src = edge.sourceId || edge.source || (edge.sourceLabel ? labelToId[edge.sourceLabel] : undefined);
+                    const tgt = edge.targetId || edge.target || (edge.targetLabel ? labelToId[edge.targetLabel] : undefined);
+                    if (!src || !tgt) return [];
+                    return [{
+                        id: edge.id || crypto.randomUUID(),
+                        sourceId: src,
+                        targetId: tgt,
+                        weight: edge.weight ?? 1
+                    }];
+                });
+
                 set({
-                    nodes: data.nodes || [],
-                    edges: data.edges || [],
+                    nodes,
+                    edges,
                     selectedNode: null,
                     customColors: {},
                     highlightedPath: []
