@@ -65,14 +65,18 @@ export class AlgorithmController {
       }
 
       const service = SupabaseService.getInstance();
-      const graph = await service.loadGraph();
-      const result = GraphAlgorithms.dijkstra(graph, startNodeId, endNodeId);
-      const executionTime = Date.now() - start;
+            const graph = await service.loadGraph();
+            const result = GraphAlgorithms.dijkstra(graph, startNodeId, endNodeId);
+            const executionTime = Date.now() - start;
+            if (result.aborted) {
+                res.status(500).json({ error: "Dijkstra aborted due to excessive iterations" });
+                return;
+            }
 
-      res.json({
-        algorithm: "Dijkstra",
-        startNode: startNodeId,
-        endNode: endNodeId,
+            res.json({
+                algorithm: "Dijkstra",
+                startNode: startNodeId,
+                endNode: endNodeId,
         ...result,
         executionTimeMs: executionTime,
       });
@@ -93,14 +97,18 @@ export class AlgorithmController {
       }
 
       const service = SupabaseService.getInstance();
-      const graph = await service.loadGraph();
-      const result = GraphAlgorithms.astar(graph, startNodeId, endNodeId);
-      const executionTime = Date.now() - start;
+            const graph = await service.loadGraph();
+            const result = GraphAlgorithms.astar(graph, startNodeId, endNodeId);
+            const executionTime = Date.now() - start;
+            if (result.aborted) {
+                res.status(500).json({ error: "A* aborted due to excessive iterations" });
+                return;
+            }
 
-      res.json({
-        algorithm: "A*",
-        startNode: startNodeId,
-        endNode: endNodeId,
+            res.json({
+                algorithm: "A*",
+                startNode: startNodeId,
+                endNode: endNodeId,
         ...result,
         executionTimeMs: executionTime,
       });

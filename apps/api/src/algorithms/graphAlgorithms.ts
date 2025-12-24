@@ -82,12 +82,13 @@ export class GraphAlgorithms {
     });
 
     graph.getEdges().forEach((edge) => {
+      const safeWeight = Number.isFinite(edge.weight) && edge.weight > 0 ? edge.weight : 1;
       adjList
         .get(edge.source.id)
-        ?.push({ target: edge.target.id, weight: edge.weight });
+        ?.push({ target: edge.target.id, weight: safeWeight });
       adjList
         .get(edge.target.id)
-        ?.push({ target: edge.source.id, weight: edge.weight });
+        ?.push({ target: edge.source.id, weight: safeWeight });
     });
 
     return adjList;
@@ -97,31 +98,64 @@ export class GraphAlgorithms {
     graph: Graph,
     startNodeId: string,
     endNodeId: string
-  ): { path: string[]; cost: number } {
+  ): { path: string[]; cost: number; aborted?: boolean } {
     const distances = new Map<string, number>();
     const previous = new Map<string, string | null>();
     const nodes = graph.getNodes();
     const adjList = this.buildWeightedAdjacencyList(graph);
+    const visited = new Set<string>();
 
-    // Priority Queue implementation using simple array
-    const pq: { id: string; dist: number }[] = [];
-
-    // Initialize
-    nodes.forEach((node) => {
-      if (node.id === startNodeId) {
-        distances.set(node.id, 0);
-        pq.push({ id: node.id, dist: 0 });
-      } else {
-        distances.set(node.id, Infinity);
-        pq.push({ id: node.id, dist: Infinity });
+    const heap: { id: string; dist: number }[] = [];
+    const push = (item: { id: string; dist: number }) => {
+      heap.push(item);
+      let i = heap.length - 1;
+      while (i > 0) {
+        const p = Math.floor((i - 1) / 2);
+        if (heap[p].dist <= heap[i].dist) break;
+        [heap[p], heap[i]] = [heap[i], heap[p]];
+        i = p;
       }
+    };
+    const pop = () => {
+      if (!heap.length) return undefined;
+      const top = heap[0];
+      const last = heap.pop()!;
+      if (heap.length) {
+        heap[0] = last;
+        let i = 0;
+        while (true) {
+          const l = 2 * i + 1;
+          const r = 2 * i + 2;
+          let smallest = i;
+          if (l < heap.length && heap[l].dist < heap[smallest].dist) smallest = l;
+          if (r < heap.length && heap[r].dist < heap[smallest].dist) smallest = r;
+          if (smallest === i) break;
+          [heap[i], heap[smallest]] = [heap[smallest], heap[i]];
+          i = smallest;
+        }
+      }
+      return top;
+    };
+
+    nodes.forEach((node) => {
+      const dist = node.id === startNodeId ? 0 : Infinity;
+      distances.set(node.id, dist);
       previous.set(node.id, null);
+      push({ id: node.id, dist });
     });
 
-    while (pq.length > 0) {
-      // Sort to simulate priority queue (min-heap)
-      pq.sort((a, b) => a.dist - b.dist);
-      const { id: u, dist } = pq.shift()!;
+    let iterations = 0;
+    const maxIterations = nodes.length * nodes.length + 200;
+
+    while (heap.length > 0) {
+      if (iterations++ > maxIterations) {
+        return { path: [], cost: 0, aborted: true };
+      }
+      const current = pop();
+      if (!current) break;
+      const { id: u, dist } = current;
+      if (visited.has(u)) continue;
+      visited.add(u);
 
       if (u === endNodeId) break;
       if (dist === Infinity) break;
@@ -132,19 +166,11 @@ export class GraphAlgorithms {
         if (alt < (distances.get(neighbor.target) || Infinity)) {
           distances.set(neighbor.target, alt);
           previous.set(neighbor.target, u);
-
-          // Update priority
-          const existing = pq.find((p) => p.id === neighbor.target);
-          if (existing) {
-            existing.dist = alt;
-          } else {
-            pq.push({ id: neighbor.target, dist: alt });
-          }
+          push({ id: neighbor.target, dist: alt });
         }
       }
     }
 
-    // Reconstruct path
     const path: string[] = [];
     let current: string | null = endNodeId;
     if (distances.get(endNodeId) === Infinity) {
@@ -167,13 +193,14 @@ export class GraphAlgorithms {
     graph: Graph,
     startNodeId: string,
     endNodeId: string
-  ): { path: string[]; cost: number } {
+  ): { path: string[]; cost: number; aborted?: boolean } {
     const distances = new Map<string, number>(); // gScore
     const fScores = new Map<string, number>(); // fScore
     const previous = new Map<string, string | null>();
     const adjList = this.buildWeightedAdjacencyList(graph);
 
     const openSet: { id: string; f: number }[] = [];
+    const closed = new Set<string>();
 
     // Heuristic: Euclidean Distance
     const heuristic = (id1: string, id2: string): number => {
@@ -194,9 +221,18 @@ export class GraphAlgorithms {
     fScores.set(startNodeId, heuristic(startNodeId, endNodeId));
     openSet.push({ id: startNodeId, f: fScores.get(startNodeId)! });
 
+    let iterations = 0;
+    const maxIterations = graph.getNodes().length * graph.getNodes().length + 200;
+
     while (openSet.length > 0) {
+      if (iterations++ > maxIterations) {
+        return { path: [], cost: 0, aborted: true };
+      }
       openSet.sort((a, b) => a.f - b.f);
       const { id: u } = openSet.shift()!;
+
+      if (closed.has(u)) continue;
+      closed.add(u);
 
       if (u === endNodeId) {
         // Reconstruct path
