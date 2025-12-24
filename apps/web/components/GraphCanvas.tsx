@@ -31,66 +31,79 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
     selectedNodeId = null
 }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const wrapperRef = useRef<HTMLDivElement>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
-    const nodeRadius = 35;
+    const nodeRadius = useMemo(() => {
+        const count = nodes.length;
+        if (count > 120) return 14;
+        if (count > 80) return 18;
+        if (count > 50) return 22;
+        if (count > 30) return 28;
+        return 34;
+    }, [nodes.length]);
 
-    // Edge Creation State
     const [isConnecting, setIsConnecting] = useState(false);
     const [connectingNodeId, setConnectingNodeId] = useState<string | null>(null);
     const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
-    // Initial Layout Logic (only runs once if nodes have 0,0 coords)
     useEffect(() => {
     }, []);
 
-    const renderNodes = useMemo(() => {
-        // Keep nodes within current canvas bounds so they stay visible on small screens
-        const clamp = (val: number, min: number, max: number) => Math.max(min, Math.min(max, val));
-        const boundedNodes = nodes.map((node) => ({
-            ...node,
-            x: clamp(node.x || width / 2, nodeRadius, width - nodeRadius),
-            y: clamp(node.y || height / 2, nodeRadius, height - nodeRadius)
-        }));
+    const { laidOutNodes, canvasWidth, canvasHeight } = useMemo(() => {
+        const needsLayout = nodes.every(n => (n.x === 0 || n.x === undefined) && (n.y === 0 || n.y === undefined)) && nodes.length > 0;
 
-        // Auto layout if all positions are 0
-        const needsLayout = boundedNodes.every(n => n.x === nodeRadius && n.y === nodeRadius) && boundedNodes.length > 0;
-        if (!needsLayout) return boundedNodes;
+        const basePositioned = needsLayout
+            ? nodes.map((node, index) => {
+                const centerX = width / 2;
+                const centerY = height / 2;
+                const radius = Math.min(centerX, centerY) * 0.8;
+                const angleStep = (2 * Math.PI) / nodes.length;
+                return {
+                    ...node,
+                    x: centerX + radius * Math.cos(index * angleStep),
+                    y: centerY + radius * Math.sin(index * angleStep)
+                };
+            })
+            : nodes.map((node) => ({
+                ...node,
+                x: node.x ?? width / 2,
+                y: node.y ?? height / 2
+            }));
 
-        const centerX = width / 2;
-        const centerY = height / 2;
-        const radius = Math.min(centerX, centerY) * 0.8;
-        const angleStep = (2 * Math.PI) / boundedNodes.length;
+        let maxX = 0, maxY = 0;
+        basePositioned.forEach(n => {
+            maxX = Math.max(maxX, n.x);
+            maxY = Math.max(maxY, n.y);
+        });
 
-        return boundedNodes.map((node, index) => ({
-            ...node,
-            x: centerX + radius * Math.cos(index * angleStep),
-            y: centerY + radius * Math.sin(index * angleStep)
-        }));
-    }, [nodes, width, height]);
+        const padding = nodeRadius + 40;
+        const virtualWidth = Math.max(width, maxX + padding);
+        const virtualHeight = Math.max(height, maxY + padding);
+
+        return {
+            laidOutNodes: basePositioned,
+            canvasWidth: virtualWidth,
+            canvasHeight: virtualHeight
+        };
+    }, [nodes, width, height, nodeRadius]);
 
     const getMousePos = (e: React.MouseEvent) => {
         const canvas = canvasRef.current;
         if (!canvas) return { x: 0, y: 0 };
-        const rect = canvas.getBoundingClientRect();
-
-        // Scale mouse coordinates to match the internal canvas resolution
-        // (Important if CSS or Tailwind has scaled the canvas visually)
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-
+        const scaleX = canvas.width / canvas.clientWidth;
+        const scaleY = canvas.height / canvas.clientHeight;
         return {
-            x: (e.clientX - rect.left) * scaleX,
-            y: (e.clientY - rect.top) * scaleY
+            x: e.nativeEvent.offsetX * scaleX,
+            y: e.nativeEvent.offsetY * scaleY
         };
     };
 
     const getNodeAtPos = (x: number, y: number) => {
-        // Simple collision detection for circles radius 35 (using 45 for better hit detection)
-        return renderNodes.find(node => {
+        return laidOutNodes.find(node => {
             const dx = node.x - x;
             const dy = node.y - y;
-            return Math.sqrt(dx * dx + dy * dy) < 45;
+            return Math.sqrt(dx * dx + dy * dy) < nodeRadius + 10;
         });
     };
 
@@ -100,12 +113,10 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
         if (node) {
             if (e.shiftKey) {
-                // Start connection mode
                 setIsConnecting(true);
                 setConnectingNodeId(node.id);
                 setMousePos({ x, y });
             } else {
-                // Normal drag/select
                 setIsDragging(true);
                 setDraggedNodeId(node.id);
                 onNodeSelect?.(node);
@@ -120,9 +131,8 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
         setMousePos({ x, y });
 
         if (isDragging && draggedNodeId) {
-            // Clamp node within canvas boundaries
-            const clampedX = Math.max(nodeRadius, Math.min(width - nodeRadius, x));
-            const clampedY = Math.max(nodeRadius, Math.min(height - nodeRadius, y));
+            const clampedX = Math.max(nodeRadius, Math.min(canvasWidth - nodeRadius, x));
+            const clampedY = Math.max(nodeRadius, Math.min(canvasHeight - nodeRadius, y));
             onNodeMove?.(draggedNodeId, clampedX, clampedY);
         }
     };
@@ -158,14 +168,11 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // Clear canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // ... (layout logic same as before)
-        // Draw Edges
         edges.forEach(edge => {
-            const source = renderNodes.find(n => n.id === edge.sourceId);
-            const target = renderNodes.find(n => n.id === edge.targetId);
+            const source = laidOutNodes.find(n => n.id === edge.sourceId);
+            const target = laidOutNodes.find(n => n.id === edge.targetId);
 
             if (source && target) {
                 let isHighlighted = false;
@@ -184,28 +191,25 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
                 ctx.lineTo(target.x, target.y);
 
                 if (isHighlighted) {
-                    ctx.strokeStyle = '#EF4444'; // Red
+                    ctx.strokeStyle = '#EF4444';
                     ctx.lineWidth = 4;
                 } else {
-                    ctx.strokeStyle = '#4B5563'; // Gray-600 (Slightly lighter for visibility)
+                    ctx.strokeStyle = '#4B5563';
                     ctx.lineWidth = 2;
                 }
 
                 ctx.stroke();
 
-                // Draw weight label on edge midpoint
                 const weight = (edge as any).weight;
                 if (weight !== undefined && weight !== null) {
                     const midX = (source.x + target.x) / 2;
                     const midY = (source.y + target.y) / 2;
 
-                    // Background for label
                     ctx.fillStyle = '#1F2937';
                     ctx.beginPath();
                     ctx.arc(midX, midY, 12, 0, 2 * Math.PI);
                     ctx.fill();
 
-                    // Weight text
                     ctx.fillStyle = '#9CA3AF';
                     ctx.font = '10px Inter, Arial';
                     ctx.textAlign = 'center';
@@ -215,42 +219,37 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
             }
         });
 
-        // Draw Proposed Edge (Rubber banding)
         if (isConnecting && connectingNodeId) {
-            const source = renderNodes.find(n => n.id === connectingNodeId);
+            const source = laidOutNodes.find(n => n.id === connectingNodeId);
             if (source) {
                 ctx.beginPath();
                 ctx.moveTo(source.x, source.y);
                 ctx.lineTo(mousePos.x, mousePos.y);
-                ctx.strokeStyle = '#60A5FA'; // Light Blue
+                ctx.strokeStyle = '#60A5FA';
                 ctx.lineWidth = 2;
                 ctx.setLineDash([5, 5]);
                 ctx.stroke();
-                ctx.setLineDash([]); // Reset
+                ctx.setLineDash([]);
             }
         }
 
-        // Draw Nodes
-        renderNodes.forEach(node => {
+        laidOutNodes.forEach(node => {
             const isSelected = selectedNodeId === node.id;
-            // Selection Glow
             if (isSelected) {
                 ctx.beginPath();
-                ctx.arc(node.x, node.y, nodeRadius + 8, 0, 2 * Math.PI);
-                ctx.fillStyle = 'rgba(59, 130, 246, 0.5)'; // Blue glow
+                ctx.arc(node.x, node.y, nodeRadius + 6, 0, 2 * Math.PI);
+                ctx.fillStyle = 'rgba(59, 130, 246, 0.5)';
                 ctx.fill();
 
                 ctx.beginPath();
-                ctx.arc(node.x, node.y, nodeRadius + 4, 0, 2 * Math.PI);
-                ctx.fillStyle = 'rgba(59, 130, 246, 0.8)'; // Inner Blue glow
+                ctx.arc(node.x, node.y, nodeRadius + 3, 0, 2 * Math.PI);
+                ctx.fillStyle = 'rgba(59, 130, 246, 0.8)';
                 ctx.fill();
             }
 
-            // Draw circle
             ctx.beginPath();
             ctx.arc(node.x, node.y, nodeRadius, 0, 2 * Math.PI);
 
-            // Color Logic: Custom > Active/Passive
             if (customNodeColors[node.id]) {
                 ctx.fillStyle = customNodeColors[node.id] || '#EF4444';
             } else {
@@ -259,41 +258,42 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
             ctx.fill();
 
-            // Border Logic
             if (highlightedPath.includes(node.id)) {
-                ctx.strokeStyle = '#FCD34D'; // Yellow/Gold
+                ctx.strokeStyle = '#FCD34D';
                 ctx.lineWidth = 4;
             } else if (isSelected) {
-                ctx.strokeStyle = '#FFFFFF'; // White border for selection
+                ctx.strokeStyle = '#FFFFFF';
                 ctx.lineWidth = 3;
             } else {
-                ctx.strokeStyle = '#1F2937'; // Dark border normal
+                ctx.strokeStyle = '#1F2937';
                 ctx.lineWidth = 2;
             }
 
             ctx.stroke();
 
-            // Draw Label
-            ctx.fillStyle = '#FFFFFF'; // White text
+            ctx.fillStyle = '#FFFFFF';
             ctx.font = isSelected ? 'bold 15px Inter, Arial' : '14px Inter, Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            // Simple truncation if too long, though with bigger radius we have more space
             const label = node.label || node.id.substring(0, 4);
             ctx.fillText(label, node.x, node.y);
         });
 
-    }, [renderNodes, edges, width, height, customNodeColors, highlightedPath, selectedNodeId, isConnecting, connectingNodeId, mousePos]);
+    }, [laidOutNodes, edges, width, height, customNodeColors, highlightedPath, selectedNodeId, isConnecting, connectingNodeId, mousePos]);
 
     return (
-        <div className="w-full h-full border border-gray-700 rounded-lg overflow-auto bg-gray-900 shadow-xl relative custom-scrollbar">
+        <div
+            ref={wrapperRef}
+            className="scroll-container w-full h-full border border-gray-700 rounded-lg overflow-auto bg-gray-900 shadow-xl relative"
+        >
             <div className="absolute top-2 left-2 text-xs text-gray-500 pointer-events-none select-none z-10 bg-gray-900/50 px-2 py-1 rounded-md">
                 Shift + Drag: Bağlantı Oluştur | Çift Tıkla: Node Ekle
             </div>
             <canvas
                 ref={canvasRef}
-                width={width}
-                height={height}
+                width={canvasWidth}
+                height={canvasHeight}
+                style={{ width: `${canvasWidth}px`, height: `${canvasHeight}px` }}
                 className={`block ${isConnecting ? 'cursor-crosshair' : 'cursor-default'}`}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
@@ -301,6 +301,28 @@ const GraphCanvas: React.FC<GraphCanvasProps> = ({
                 onMouseLeave={handleMouseUp}
                 onDoubleClick={handleDoubleClick}
             />
+            <style jsx>{`
+                .scroll-container::-webkit-scrollbar {
+                    width: 10px;
+                    height: 10px;
+                }
+                .scroll-container::-webkit-scrollbar-track {
+                    background: #0f172a;
+                    border-radius: 8px;
+                }
+                .scroll-container::-webkit-scrollbar-thumb {
+                    background: #475569;
+                    border-radius: 8px;
+                    border: 2px solid #0f172a;
+                }
+                .scroll-container::-webkit-scrollbar-thumb:hover {
+                    background: #64748b;
+                }
+                .scroll-container {
+                    scrollbar-width: thin;
+                    scrollbar-color: #475569 #0f172a;
+                }
+            `}</style>
         </div>
     );
 };

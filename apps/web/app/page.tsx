@@ -14,6 +14,7 @@ export default function Home() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
   const [mounted, setMounted] = useState(false);
+  const panelHeights = "lg:h-[90vh]";
 
   useEffect(() => {
     setMounted(true);
@@ -40,7 +41,7 @@ export default function Home() {
     nodes, edges, selectedNode, loading, algoLoading, algoResults, customColors, highlightedPath, modal,
     fetchGraph, saveGraph, addNode, updateNodePos, selectNode, updateNodeProperty, updateNodeLabel, addEdge,
     runBFS, runDFS, runColoring, runShortestPath, runCentrality, runCommunities, openModal, closeModal,
-    exportGraphJSON, exportGraphCSV, deleteNode, importGraphJSON
+    exportGraphJSON, exportGraphCSV, deleteNode, importGraphJSON, generateSmallGraph, generateMediumGraph, clearGraph, autoLayout
   } = useGraphStore();
 
   useEffect(() => {
@@ -81,53 +82,62 @@ export default function Home() {
         </p>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6 items-stretch w-full">
-        <div className="flex-1 flex flex-col relative min-w-0">
-          <div className="relative flex flex-col xl:flex-row gap-6 items-start">
-            {/* Results Table Overlay (if visible) */}
-            {algoResults && (
-              <div className="w-full xl:w-80 shrink-0 z-20">
-                <ResultsTable />
+      <div className="flex flex-col sm:flex-row flex-wrap gap-3 mb-2 sm:mb-4">
+        <button onClick={generateSmallGraph} className="w-full sm:w-auto px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-sm font-medium text-slate-200 hover:bg-slate-700 transition-all">
+          Küçük (10-20)
+        </button>
+        <button onClick={generateMediumGraph} className="w-full sm:w-auto px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-sm font-medium text-slate-200 hover:bg-slate-700 transition-all">
+          Orta (50-100)
+        </button>
+        <button onClick={clearGraph} className="w-full sm:w-auto px-4 py-2.5 bg-rose-900 border border-rose-700 rounded-lg text-sm font-medium text-rose-100 hover:bg-rose-800 transition-all">
+          Temizle
+        </button>
+        <button onClick={autoLayout} className="w-full sm:w-auto px-4 py-2.5 bg-emerald-800 border border-emerald-700 rounded-lg text-sm font-medium text-emerald-100 hover:bg-emerald-700 transition-all">
+          Düzenle
+        </button>
+      </div>
+
+      <div className="flex flex-col lg:flex-row gap-6 items-stretch w-full mt-2">
+        <div className="flex flex-col xl:flex-row gap-4 flex-1 min-w-0">
+          {algoResults && (
+            <div className={`results-wrapper w-full xl:w-80 shrink-0 bg-gray-900/60 backdrop-blur-xl rounded-2xl p-4 border border-white/10 shadow-2xl overflow-hidden ${panelHeights}`}>
+              <ResultsTable />
+            </div>
+          )}
+          <div
+            ref={containerRef}
+            className={`flex-1 w-full bg-[#1e293b]/50 border border-slate-700/50 rounded-3xl shadow-2xl backdrop-blur-md relative group overflow-hidden ${panelHeights}`}
+          >
+            {algoLoading && (
+              <div className="absolute top-4 right-4 z-10 px-4 py-2 bg-yellow-500/20 backdrop-blur-md border border-yellow-500/50 rounded-full text-yellow-300 font-mono text-xs animate-pulse shadow-[0_0_15px_rgba(234,179,8,0.3)] flex items-center gap-2">
+                <span className="w-2 h-2 bg-yellow-400 rounded-full animate-ping" />
+                Algoritma Çalışıyor...
               </div>
             )}
 
-            <div
-              ref={containerRef}
-              className="flex-1 w-full h-[55vh] sm:h-[60vh] md:h-[65vh] lg:h-[70vh] bg-[#1e293b]/50 border border-slate-700/50 rounded-3xl shadow-2xl backdrop-blur-md relative group overflow-hidden"
-            >
-              {algoLoading && (
-                <div className="absolute top-4 right-4 z-10 px-4 py-2 bg-yellow-500/20 backdrop-blur-md border border-yellow-500/50 rounded-full text-yellow-300 font-mono text-xs animate-pulse shadow-[0_0_15px_rgba(234,179,8,0.3)] flex items-center gap-2">
-                  <span className="w-2 h-2 bg-yellow-400 rounded-full animate-ping" />
-                  Algoritma Çalışıyor...
-                </div>
-              )}
+            <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-purple-500/5 pointer-events-none" />
 
-              <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-purple-500/5 pointer-events-none" />
-
-              <GraphCanvas
-                nodes={nodes}
-                edges={edges}
-                width={canvasSize.width}
-                height={canvasHeight}
-                onNodeMove={updateNodePos}
-                onNodeSelect={handleNodeSelect}
-                onNodeAdd={addNode}
-                onEdgeAdd={addEdge}
-                customNodeColors={customColors}
-                highlightedPath={highlightedPath}
-                selectedNodeId={selectedNode?.id}
-              />
-            </div>
+            <GraphCanvas
+              nodes={nodes}
+              edges={edges}
+              width={canvasSize.width}
+              height={canvasHeight}
+              onNodeMove={updateNodePos}
+              onNodeSelect={handleNodeSelect}
+              onNodeAdd={addNode}
+              onEdgeAdd={addEdge}
+              customNodeColors={customColors}
+              highlightedPath={highlightedPath}
+              selectedNodeId={selectedNode?.id}
+            />
           </div>
         </div>
 
-        {/* Properties Panel (Sidebar) */}
-        <div className="w-full lg:w-96 shrink-0 lg:self-stretch">
+        <div className={`w-full lg:w-96 shrink-0 lg:self-stretch ${panelHeights}`}>
           <PropertiesPanel className="h-full" />
         </div>
       </div>
 
-      {/* Algorithm Toolbar */}
       <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 z-10 w-full max-w-full">
         <button onClick={runBFS} className="px-4 py-3 bg-blue-600/10 border border-blue-500/30 hover:bg-blue-600/20 rounded-xl transition-all font-medium text-blue-300 text-sm w-full">
           BFS
@@ -149,7 +159,6 @@ export default function Home() {
         </button>
       </div>
 
-      {/* File Operations Row */}
       <div className="mt-4 flex flex-col sm:flex-row flex-wrap gap-3 justify-center sm:justify-start z-10 w-full mb-8">
         <button onClick={saveGraph} disabled={loading} className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600/20 border border-emerald-500/50 hover:bg-emerald-600/40 rounded-lg transition-all text-sm font-semibold text-emerald-300 flex items-center gap-2 justify-center">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
@@ -170,7 +179,6 @@ export default function Home() {
         }} />
       </div>
 
-      {/* Modals */}
       <Modal
         isOpen={modal.isOpen}
         onClose={closeModal}
@@ -182,6 +190,8 @@ export default function Home() {
       />
 
       <LoadingOverlay isLoading={loading} />
+      <style jsx>{`
+      `}</style>
     </main>
   );
 }

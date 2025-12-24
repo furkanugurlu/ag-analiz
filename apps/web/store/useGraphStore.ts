@@ -51,6 +51,11 @@ interface GraphAnalysisState {
     selectNode: (node: INode | null) => void;
     updateNodeProperty: (id: string, key: string, value: any) => void;
     updateNodeLabel: (id: string, label: string) => void;
+    generateSmallGraph: () => void;
+    generateMediumGraph: () => void;
+    generateRandomGraph: (nodeCount: number) => void;
+    clearGraph: () => void;
+    autoLayout: () => void;
 
     // Algorithm Operations
     runBFS: () => Promise<void>;
@@ -84,6 +89,16 @@ export const useGraphStore = create<GraphAnalysisState>((set, get) => ({
     modal: { isOpen: false, title: '', message: '', type: 'info' },
 
     setNodes: (nodes) => set({ nodes }),
+
+    generateSmallGraph: () => {
+        const count = Math.floor(Math.random() * 11) + 10;
+        get().generateRandomGraph(count);
+    },
+
+    generateMediumGraph: () => {
+        const count = Math.floor(Math.random() * 51) + 50;
+        get().generateRandomGraph(count);
+    },
 
     fetchGraph: async () => {
         set({ loading: true });
@@ -225,6 +240,109 @@ export const useGraphStore = create<GraphAnalysisState>((set, get) => ({
             return n;
         });
         set({ nodes: updatedNodes });
+    },
+
+    generateRandomGraph: (nodeCount) => {
+        const viewWidth = 1200;
+        const viewHeight = 900;
+        const margin = 50;
+        const cols = Math.ceil(Math.sqrt(nodeCount));
+        const rows = Math.ceil(nodeCount / cols);
+        const cellW = Math.max((viewWidth - margin * 2) / cols, 1);
+        const cellH = Math.max((viewHeight - margin * 2) / rows, 1);
+
+        const nodes: INode[] = [];
+        for (let i = 0; i < nodeCount; i++) {
+            const r = Math.floor(i / cols);
+            const c = i % cols;
+            const jitterX = (Math.random() - 0.5) * Math.min(cellW * 0.3, 30);
+            const jitterY = (Math.random() - 0.5) * Math.min(cellH * 0.3, 30);
+            const x = margin + c * cellW + cellW / 2 + jitterX;
+            const y = margin + r * cellH + cellH / 2 + jitterY;
+
+            nodes.push({
+                id: crypto.randomUUID(),
+                label: `Node ${i + 1}`,
+                x,
+                y,
+                properties: {
+                    isActive: Math.random() > 0.2,
+                    activity: Math.random(),
+                    interactionCount: Math.floor(Math.random() * 100),
+                    connectionCount: 0
+                }
+            });
+        }
+
+        const edges: IEdge[] = [];
+        const edgeExists = (a: string, b: string) =>
+            edges.some(e => (e.sourceId === a && e.targetId === b) || (e.sourceId === b && e.targetId === a));
+
+        const computeWeight = (a: INode, b: INode) => {
+            const d1 = (a.properties.activity || 0) - (b.properties.activity || 0);
+            const d2 = (a.properties.interactionCount || 0) - (b.properties.interactionCount || 0);
+            const d3 = (a.properties.connectionCount || 0) - (b.properties.connectionCount || 0);
+            const dist = Math.sqrt(d1 * d1 + d2 * d2 + d3 * d3);
+            return 1 / (1 + dist);
+        };
+
+        for (let i = 0; i < nodes.length; i++) {
+            const targets = Math.floor(Math.random() * 3) + 1;
+            for (let t = 0; t < targets; t++) {
+                const targetIndex = Math.floor(Math.random() * nodes.length);
+                if (targetIndex === i) continue;
+                const sourceId = nodes[i].id;
+                const targetId = nodes[targetIndex].id;
+                if (edgeExists(sourceId, targetId)) continue;
+                edges.push({
+                    id: crypto.randomUUID(),
+                    sourceId,
+                    targetId,
+                    weight: computeWeight(nodes[i], nodes[targetIndex])
+                });
+            }
+        }
+
+        const connectionCounts: Record<string, number> = {};
+        edges.forEach(e => {
+            connectionCounts[e.sourceId] = (connectionCounts[e.sourceId] || 0) + 1;
+            connectionCounts[e.targetId] = (connectionCounts[e.targetId] || 0) + 1;
+        });
+
+        const updatedNodes = nodes.map(n => ({
+            ...n,
+            properties: { ...n.properties, connectionCount: connectionCounts[n.id] || 0 }
+        }));
+
+        set({ nodes: updatedNodes, edges, selectedNode: null, customColors: {}, highlightedPath: [], algoResults: null });
+    },
+
+    clearGraph: () => {
+        set({ nodes: [], edges: [], selectedNode: null, customColors: {}, highlightedPath: [], algoResults: null });
+    },
+
+    autoLayout: () => {
+        const { nodes } = get();
+        if (!nodes.length) return;
+        const viewWidth = 1200;
+        const viewHeight = 900;
+        const margin = 50;
+        const cols = Math.ceil(Math.sqrt(nodes.length));
+        const rows = Math.ceil(nodes.length / cols);
+        const cellW = Math.max((viewWidth - margin * 2) / cols, 1);
+        const cellH = Math.max((viewHeight - margin * 2) / rows, 1);
+
+        const laidOut = nodes.map((node, i) => {
+            const r = Math.floor(i / cols);
+            const c = i % cols;
+            const jitterX = (Math.random() - 0.5) * Math.min(cellW * 0.2, 20);
+            const jitterY = (Math.random() - 0.5) * Math.min(cellH * 0.2, 20);
+            const x = margin + c * cellW + cellW / 2 + jitterX;
+            const y = margin + r * cellH + cellH / 2 + jitterY;
+            return { ...node, x, y };
+        });
+
+        set({ nodes: laidOut, customColors: {}, highlightedPath: [], algoResults: null });
     },
 
     runBFS: async () => {

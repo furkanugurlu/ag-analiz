@@ -12,11 +12,9 @@ const PropertiesPanel: React.FC<{ className?: string }> = ({ className = "" }) =
         openModal
     } = useGraphStore();
 
-    // Use a fixed or responsive container
     return (
-        <div className={`w-full lg:w-96 bg-gray-900/60 backdrop-blur-xl rounded-2xl p-6 border border-white/10 h-full shadow-2xl transition-all duration-300 hover:border-white/20 mt-8 lg:mt-0 ${className}`}>
-            {/* Header */}
-            <h2 className="text-xl font-bold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 flex items-center gap-2">
+        <div className={`properties-wrapper w-full lg:w-96 bg-gray-900/60 backdrop-blur-xl rounded-2xl p-5 border border-white/10 h-full shadow-2xl transition-all duration-300 hover:border-white/20 overflow-hidden lg:overflow-auto flex flex-col ${className}`}>
+            <h2 className="text-lg font-semibold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 flex items-center gap-2">
                 <svg className="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                 Özellik Paneli
             </h2>
@@ -24,11 +22,11 @@ const PropertiesPanel: React.FC<{ className?: string }> = ({ className = "" }) =
             {selectedNode ? (
                 <div className="space-y-4">
                     <div>
-                        <label className="block text-sm text-gray-400 mb-1">ID</label>
-                        <div className="text-xs font-mono bg-gray-800/50 p-2 rounded text-gray-300 truncate border border-gray-700/50">{selectedNode.id}</div>
+                        <label className="block text-xs text-gray-400 mb-1">ID</label>
+                        <div className="text-[11px] font-mono bg-gray-800/50 p-2 rounded text-gray-300 truncate border border-gray-700/50">{selectedNode.id}</div>
                     </div>
                     <div>
-                        <label className="block text-sm text-gray-400 mb-1">Etiket (Tıkla ve Düzenle)</label>
+                        <label className="block text-xs text-gray-400 mb-1">Etiket (Tıkla ve Düzenle)</label>
                         <div
                             onClick={() => openModal({
                                 title: "Etiket Düzenle",
@@ -47,15 +45,15 @@ const PropertiesPanel: React.FC<{ className?: string }> = ({ className = "" }) =
                     </div>
 
                     <div className="border-t border-gray-700/50 pt-4 mt-4">
-                        <h3 className="font-semibold mb-3 text-gray-300 flex items-center gap-2">
-                            <span className="w-1 h-4 bg-blue-500 rounded-full"></span>
+                        <h3 className="font-semibold mb-3 text-gray-300 flex items-center gap-2 text-sm">
+                            <span className="w-1 h-3 bg-blue-500 rounded-full"></span>
                             Özellikler
                         </h3>
 
                         <div className="mb-4">
                             <div className="flex justify-between items-center mb-1">
-                                <label className="block text-sm text-gray-400">Aktiflik Değeri (Float)</label>
-                                <span className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-md">{(selectedNode.properties.activity || 0).toFixed(2)}</span>
+                                <label className="block text-xs text-gray-400">Aktiflik Değeri (Float)</label>
+                                <span className="text-[11px] text-gray-500 bg-gray-800 px-2 py-0.5 rounded-md">{(selectedNode.properties.activity || 0).toFixed(2)}</span>
                             </div>
                             <input
                                 type="range"
@@ -69,7 +67,7 @@ const PropertiesPanel: React.FC<{ className?: string }> = ({ className = "" }) =
                         </div>
 
                         <div className="flex items-center justify-between mb-4 bg-gray-800/30 p-3 rounded-lg border border-gray-700/30">
-                            <label className="text-sm text-gray-400">Çevrimiçi mi?</label>
+                            <label className="text-xs text-gray-400">Çevrimiçi mi?</label>
                             <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
                                 <input
                                     type="checkbox"
@@ -85,8 +83,8 @@ const PropertiesPanel: React.FC<{ className?: string }> = ({ className = "" }) =
 
                         <div className="mb-4">
                             <div className="flex justify-between items-center mb-1">
-                                <label className="block text-sm text-gray-400">Etkileşim</label>
-                                <span className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-md">{selectedNode.properties.interactionCount}</span>
+                                <label className="block text-xs text-gray-400">Etkileşim</label>
+                                <span className="text-[11px] text-gray-500 bg-gray-800 px-2 py-0.5 rounded-md">{selectedNode.properties.interactionCount}</span>
                             </div>
                             <input
                                 type="range"
@@ -99,14 +97,14 @@ const PropertiesPanel: React.FC<{ className?: string }> = ({ className = "" }) =
                         </div>
 
                         <div className="mb-3">
-                            <label className="block text-sm text-gray-400 mb-1">Bağlantı Sayısı (Hesaplanan)</label>
-                            <div className="w-full bg-gray-800/50 border border-gray-700/50 rounded-lg p-2.5 text-white font-mono">
+                            <label className="block text-xs text-gray-400 mb-1">Bağlantı Sayısı (Hesaplanan)</label>
+                            <div className="w-full bg-gray-800/50 border border-gray-700/50 rounded-lg p-2 text-white font-mono text-sm">
                                 {edges.filter(e => e.sourceId === selectedNode.id || e.targetId === selectedNode.id).length}
                             </div>
                         </div>
 
                         {/* Delete Node Button */}
-                        <div className="mt-6 pt-4 border-t border-gray-700/50">
+                        <div className="mt-4 pt-3 border-t border-gray-700/50">
                             <button
                                 onClick={() => openModal({
                                     title: 'Düğümü Sil',
