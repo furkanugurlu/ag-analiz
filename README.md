@@ -33,8 +33,6 @@ graflarda en az adım sayısıyla en kısa yolu bulmak için uygundur.
 3. Bu düğümün komşularına bak, daha önce ziyaret edilmemiş olanları hem işaretle hem de kuyruğa ekle.
 4. Tüm düğümler dolaşılana kadar devam et.
 
-**Akış diyagramı (Mermaid):**
-
 ```mermaid
 flowchart TD
   A["Başlangıç düğümünü kuyruğa ekle"] --> B{Kuyruk boş mu?}
@@ -62,8 +60,6 @@ işlerde sık kullanılır.
 4. Ziyaret edilmemiş komşuları stack'e ekle.
 5. Stack boşalana kadar sürdür.
 
-**Akış diyagramı (Mermaid):**
-
 ```mermaid
 flowchart TD
   A["Başlangıç düğümünü stack'e koy"] --> B{Stack boş mu?}
@@ -84,15 +80,11 @@ Zaman karmaşıklığı `O(V+E)`, bellek karmaşıklığı `O(V)` civarındadır
 Dijkstra, kenar ağırlıkları negatif olmayan graflarda, bir başlangıç düğümünden diğer düğümlere
 en küçük toplam maliyetle ulaşan yolları bulmak için kullanılır.
 
-**Temel adımlar:**
-
 1. Tüm düğümler için başlangıçta mesafeyi sonsuz kabul et, sadece başlangıç düğümünün mesafesini sıfır yap.
 2. Başlangıç düğümünü öncelik kuyruğuna ekle.
 3. Kuyruk boşalana kadar, mesafesi en küçük olan düğümü seç.
 4. Bu düğümün komşularına bak, bu düğüm üzerinden gitmek komşunun mevcut mesafesinden daha ucuzsa mesafeyi güncelle.
 5. Tüm düğümler işleninceye kadar devam et.
-
-**Akış diyagramı (Mermaid):**
 
 ```mermaid
 flowchart TD
@@ -129,8 +121,6 @@ Her düğüm için üç değer tutulur:
 5. Değilse komşular için yeni `g` değeri hesaplanır, önceki değerlerden daha iyiyse `g` ve `f` güncellenir.
 6. Açık küme boşalana veya hedefe ulaşılana kadar devam edilir.
 
-**Akış diyagramı (Mermaid):**
-
 ```mermaid
 flowchart TD
   A["Start için g=0, h hesapla, f=g+h"] --> B["Start düğümünü open set'e ekle"]
@@ -160,8 +150,6 @@ Welsh–Powell algoritması, komşu düğümlerin aynı renge sahip olmadığı 
 3. Renksiz düğüm kalırsa bir sonraki renge geç ve aynı işlemleri tekrarla.
 4. Tüm düğümler renklendiğinde işlem tamamlanır.
 
-**Akış diyagramı (Mermaid):**
-
 ```mermaid
 flowchart TD
   A["Düğümleri dereceye göre azalan sırala"] --> B["Renk=1"]
@@ -190,8 +178,6 @@ Derece merkeziliği, bir düğümün kaç komşusu olduğunu ölçer. Sosyal ağ
 3. Düğümleri dereceye göre azalan şekilde sırala.
 4. İlk 5 düğümü raporla.
 
-**Akış diyagramı (Mermaid):**
-
 ```mermaid
 flowchart TD
   A["Tüm düğümler için derece=0"] --> B["Her kenar için uçların derecesini artır"]
@@ -214,8 +200,6 @@ gruplarını ortaya çıkarır.
 2. Ziyaret edilmemiş bir düğüm bulduğun anda BFS veya DFS başlat.
 3. Bu arama ile ulaşılan tüm düğümleri aynı bileşen altında topla.
 4. Ziyaret edilmemiş düğüm kalmayana kadar işlemi tekrar et.
-
-**Akış diyagramı (Mermaid):**
 
 ```mermaid
 flowchart TD
